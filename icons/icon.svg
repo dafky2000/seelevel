@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- SeeLevel - a sun setting at the horizon over a calm sea. The waterline
+       is the "level"; the filled sea doubles as an analytics area chart. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f3a52"/>
+      <stop offset="1" stop-color="#0d161f"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#46dcd2"/>
+      <stop offset="1" stop-color="#1c7fa0"/>
+    </linearGradient>
+    <clipPath id="badge"><rect width="128" height="128" rx="29"/></clipPath>
+  </defs>
+  <g clip-path="url(#badge)">
+    <rect width="128" height="128" fill="url(#sky)"/>
+    <circle cx="80" cy="76" r="17" fill="#ffc266"/>
+    <path d="M0,80 C22,68 42,68 64,80 C86,92 106,92 128,80 L128,128 L0,128 Z" fill="url(#sea)"/>
+  </g>
+</svg>

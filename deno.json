@@ -1,0 +1,15 @@
+{
+  "imports": {
+    "preact": "npm:preact@10.26",
+    "preact/hooks": "npm:preact@10.26/hooks",
+    "preact/jsx-runtime": "npm:preact@10.26/jsx-runtime",
+    "uplot": "npm:uplot@1.6.31",
+    "leaflet": "npm:leaflet@1.9.4",
+    "@geoman-io/leaflet-geoman-free": "npm:@geoman-io/leaflet-geoman-free@2.17.0"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "lib": ["deno.ns", "dom", "dom.iterable", "esnext"]
+  }
+}

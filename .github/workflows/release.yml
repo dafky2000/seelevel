@@ -1,0 +1,104 @@
+name: release
+
+# Tag-driven release. Push a tag like `v0.2.0` and this workflow:
+#   1. Verifies the tag matches `manifest.json`'s version (fails loudly if not).
+#   2. Extracts the matching `## [vX.Y.Z]` section from CHANGELOG.md and
+#      uses it as the release body (fails loudly if the section is missing).
+#   3. Runs tests.
+#   4. Builds production + packages `seelevel-X.Y.Z.zip` (build.ts --package).
+#   5. Creates a GitHub Release on the tag and uploads the zip as an asset.
+#
+# Two sources of truth, both required to agree with the git tag:
+#   - `manifest.json` -> `version` field   (drives the build artifact name)
+#   - `CHANGELOG.md`  -> `## [vX.Y.Z]`     (drives the release body)
+# This eliminates "tagged but forgot to bump", "bumped but forgot to tag",
+# and "shipped but forgot to write release notes" failure modes.
+#
+# To cut a release:
+#   1. Bump `version` in `manifest.json`.
+#   2. Add a matching `## [vX.Y.Z] - YYYY-MM-DD` section to CHANGELOG.md.
+#   3. Commit both on `main`.
+#   4. `git tag v$(jq -r .version manifest.json) && git push --tags`
+#   5. Watch this workflow run. The release shows up under Releases.
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write  # required by `gh release create`
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/deno
+          key: deno-${{ runner.os }}-${{ hashFiles('deno.lock') }}
+          restore-keys: deno-${{ runner.os }}-
+
+      - name: Verify tag matches manifest version
+        run: |
+          set -e
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION="$(jq -r .version manifest.json)"
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' does not match manifest.json version '$MANIFEST_VERSION'."
+            echo "::error::Either bump manifest.json to '$TAG_VERSION' and re-tag, or delete the tag and use 'v$MANIFEST_VERSION'."
+            exit 1
+          fi
+          echo "Tag and manifest agree on version $TAG_VERSION."
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          set -e
+          # Capture everything between this version's heading and the next
+          # `## [` heading. Then strip leading blank lines.
+          awk -v ver="$GITHUB_REF_NAME" '
+            $0 ~ "^## \\[" ver "\\]" { capturing=1; next }
+            capturing && /^## \[/      { exit }
+            capturing                  { print }
+          ' CHANGELOG.md | sed '/./,$!d' > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::No '## [$GITHUB_REF_NAME]' section found in CHANGELOG.md."
+            echo "::error::Add a '## [$GITHUB_REF_NAME] - $(date +%Y-%m-%d)' section and re-tag."
+            exit 1
+          fi
+          echo "----- release notes preview -----"
+          cat release-notes.md
+          echo "---------------------------------"
+
+      - name: Test
+        run: deno test -A src/
+
+      - name: Build & package
+        run: deno run -A build.ts --package
+
+      - name: Verify the zip exists and is non-empty
+        run: |
+          set -e
+          VERSION="${GITHUB_REF_NAME#v}"
+          ZIP="seelevel-${VERSION}.zip"
+          test -s "$ZIP"
+          unzip -l "$ZIP" | grep -q ' manifest.json$'
+          echo "Packaged $ZIP ($(du -h "$ZIP" | cut -f1))."
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "SeeLevel $GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            "seelevel-${VERSION}.zip"

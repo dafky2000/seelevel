@@ -1,0 +1,50 @@
+name: ci
+
+# Run on every push to main and every PR targeting main.
+# Production build + test on each run — same toolchain the release workflow
+# uses, so any failure here is the same failure that would block a release.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/deno
+          key: deno-${{ runner.os }}-${{ hashFiles('deno.lock') }}
+          restore-keys: deno-${{ runner.os }}-
+
+      - name: Test
+        run: deno test -A src/
+
+      - name: Build (production)
+        run: deno run -A build.ts --prod
+
+      - name: Sanity-check build output
+        run: |
+          set -e
+          test -f build/manifest.json
+          test -f build/panel/panel.js
+          test -f build/panel/panel.css
+          test -f build/panel/index.html
+          test -f build/background/sw.js
+          test -f build/content/fetch-interceptor.js
+          test -f build/content/relay.js
+          for size in 16 48 128; do
+            test -f "build/icons/icon${size}.png"
+          done
+          echo "Build output looks good."

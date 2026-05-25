@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "SeeLevel",
+  "version": "0.1.0",
+  "description": "Turns the ViewPoint.ca listings you browse into actionable trends. For personal, non-professional, non-commerical use only.",
+  "permissions": ["sidePanel"],
+  "side_panel": {
+    "default_path": "panel/index.html"
+  },
+  "background": {
+    "service_worker": "background/sw.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.viewpoint.ca/map*"],
+      "js": ["content/fetch-interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://*.viewpoint.ca/map*"],
+      "js": ["content/relay.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    }
+  ],
+  "action": {
+    "default_title": "SeeLevel"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

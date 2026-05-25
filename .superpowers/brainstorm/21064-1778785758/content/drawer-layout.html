@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>ViewPoint Analytics — Drawer Layout Options</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; }
+
+h2 { color: #fff; font-size: 18px; padding: 20px 24px 4px; }
+.subtitle { color: #888; font-size: 13px; padding: 0 24px 16px; }
+.options-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 0 24px 24px; }
+
+.option-card {
+  border: 2px solid #333;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #0d0d1a;
+}
+.option-card:hover { border-color: #4363d8; }
+.option-card.selected { border-color: #16c784; box-shadow: 0 0 0 3px rgba(22,199,132,0.2); }
+
+.card-label {
+  background: #252540;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-label .letter {
+  background: #4363d8;
+  color: #fff;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.option-card.selected .card-label .letter { background: #16c784; }
+
+.mockup-wrap {
+  height: 340px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shared map mockup */
+.map-bg {
+  position: absolute;
+  inset: 0;
+  background: #e8f4f8;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.map-inner {
+  width: 100%; height: 100%;
+  background:
+    repeating-linear-gradient(0deg, rgba(180,210,220,0.3) 0px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(90deg, rgba(180,210,220,0.3) 0px, transparent 1px, transparent 40px),
+    linear-gradient(160deg, #c8e6c9 0%, #b3dce8 40%, #cfe8f3 70%, #dceef6 100%);
+}
+
+/* Roads */
+.map-road {
+  position: absolute;
+  background: rgba(255,255,255,0.7);
+}
+
+/* Viewpoint header bar */
+.vp-header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  background: #fff;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #ddd;
+  z-index: 10;
+  gap: 8px;
+}
+.vp-logo { background: #1565c0; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 3px; }
+.vp-search { flex: 1; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; height: 22px; margin: 0 8px; }
+
+/* Listing sidebar */
+.listing-sidebar {
+  position: absolute;
+  left: 0; top: 36px; bottom: 0;
+  width: 60px;
+  background: #fff;
+  border-right: 1px solid #eee;
+  z-index: 5;
+}
+.listing-item {
+  height: 28px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  gap: 4px;
+  font-size: 8px;
+  color: #555;
+}
+.listing-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Geofence button */
+.geo-btn {
+  position: absolute;
+  top: 48px;
+  right: 8px;
+  background: #fff;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #333;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.geo-btn svg { width: 12px; height: 12px; }
+
+/* Geofence polygon */
+.geofence-poly {
+  position: absolute;
+  z-index: 8;
+}
+
+/* Map pins */
+.map-pin {
+  position: absolute;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0,0,0,0.3);
+  z-index: 6;
+}
+
+/* ===== OPTION A: Minimal Peek Bar ===== */
+.peek-bar {
+  position: absolute;
+  bottom: 0; left: 60px; right: 0;
+  background: rgba(15, 15, 30, 0.95);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  z-index: 30;
+  border-radius: 8px 8px 0 0;
+}
+.peek-handle {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  gap: 12px;
+  cursor: pointer;
+}
+.peek-handle-bar {
+  width: 28px; height: 3px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 2px;
+  margin: 0 auto;
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  top: 6px;
+}
+.peek-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.peek-stat-val { font-size: 13px; font-weight: 700; color: #fff; }
+.peek-stat-lbl { font-size: 8px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+.peek-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.1); }
+.peek-expand { margin-left: auto; font-size: 9px; color: #4363d8; font-weight: 600; white-space: nowrap; }
+
+/* peek expanded */
+.peek-chart-row {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+.mini-chart {
+  flex: 1;
+  height: 48px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.mini-chart-line {
+  position: absolute;
+  bottom: 8px; left: 8px; right: 8px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #4363d8, #16c784);
+  border-radius: 1px;
+}
+.mini-chart-fill {
+  position: absolute;
+  bottom: 8px; left: 8px; right: 8px;
+  background: linear-gradient(180deg, rgba(67,99,216,0.15), transparent);
+  border-radius: 2px;
+}
+.mini-chart-lbl { position: absolute; top: 6px; left: 8px; font-size: 7px; color: #666; font-weight: 600; text-transform: uppercase; }
+
+/* ===== OPTION B: Fixed Side Panel ===== */
+.side-panel {
+  position: absolute;
+  right: 0; top: 36px; bottom: 0;
+  width: 180px;
+  background: rgba(15, 15, 30, 0.96);
+  backdrop-filter: blur(8px);
+  border-left: 1px solid rgba(255,255,255,0.1);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+}
+.panel-header {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.panel-title { font-size: 10px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.panel-subtitle { font-size: 8px; color: #666; }
+.time-pills {
+  display: flex;
+  gap: 3px;
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+.time-pill {
+  font-size: 7px;
+  padding: 2px 5px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.07);
+  color: #888;
+  cursor: pointer;
+}
+.time-pill.active { background: #4363d8; color: #fff; }
+.panel-stats {
+  padding: 4px 10px 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.p-stat { background: rgba(255,255,255,0.05); border-radius: 5px; padding: 5px 6px; }
+.p-stat-val { font-size: 11px; font-weight: 700; color: #fff; }
+.p-stat-lbl { font-size: 7px; color: #666; text-transform: uppercase; }
+.panel-chart-area {
+  flex: 1;
+  padding: 0 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+.p-chart {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+.p-chart-label { position: absolute; top: 5px; left: 8px; font-size: 7px; color: #555; font-weight: 600; text-transform: uppercase; }
+.chart-bars {
+  position: absolute;
+  bottom: 4px; left: 8px; right: 8px;
+  height: 40%;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+.chart-bar { flex: 1; background: #4363d8; border-radius: 2px 2px 0 0; opacity: 0.8; }
+
+/* ===== OPTION C: Full-Width Bottom Drawer ===== */
+.bottom-drawer {
+  position: absolute;
+  bottom: 0; left: 60px; right: 0;
+  height: 130px;
+  background: rgba(13, 13, 26, 0.97);
+  backdrop-filter: blur(10px);
+  border-top: 2px solid rgba(67,99,216,0.4);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+}
+.drawer-topbar {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  gap: 8px;
+  flex-shrink: 0;
+}
+.drawer-handle { width: 30px; height: 3px; background: rgba(255,255,255,0.2); border-radius: 2px; position: absolute; top: 5px; left: 50%; transform: translateX(-50%); }
+.drawer-title { font-size: 10px; font-weight: 700; color: #fff; }
+.metric-tabs { display: flex; gap: 4px; }
+.metric-tab {
+  font-size: 8px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.07);
+  color: #777;
+  cursor: pointer;
+}
+.metric-tab.active { background: #4363d8; color: #fff; }
+.drawer-time { margin-left: auto; display: flex; gap: 3px; }
+.d-time { font-size: 7px; padding: 2px 5px; border-radius: 10px; background: rgba(255,255,255,0.05); color: #666; }
+.d-time.active { background: rgba(67,99,216,0.3); color: #a0b0ff; }
+
+.drawer-content {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.drawer-stats-col {
+  width: 120px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,0.07);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.d-stat { display: flex; flex-direction: column; }
+.d-stat-val { font-size: 12px; font-weight: 700; color: #fff; }
+.d-stat-lbl { font-size: 7px; color: #555; text-transform: uppercase; }
+.d-stat-delta { font-size: 8px; color: #16c784; font-weight: 600; }
+
+.drawer-chart-col {
+  flex: 1;
+  padding: 6px 10px;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.d-chart {
+  flex: 1;
+  background: rgba(255,255,255,0.03);
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+}
+.d-chart-lbl { position: absolute; top: 5px; left: 8px; font-size: 7px; color: #555; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Sparkline SVG style chart */
+.sparkline {
+  position: absolute;
+  bottom: 6px; left: 8px; right: 8px;
+  height: 55%;
+}
+
+/* Card description */
+.card-desc {
+  padding: 10px 14px 12px;
+  font-size: 11px;
+  color: #999;
+  line-height: 1.5;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.card-desc strong { color: #ddd; }
+
+/* Selected indicator */
+.selected-badge {
+  display: none;
+  position: absolute;
+  top: 8px; right: 8px;
+  background: #16c784;
+  color: #000;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.option-card.selected .selected-badge { display: block; }
+.option-card { position: relative; }
+
+/* selection indicator bar at bottom */
+.selection-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(22, 199, 132, 0.15);
+  border-top: 1px solid rgba(22, 199, 132, 0.3);
+  padding: 8px 24px;
+  font-size: 12px;
+  color: #16c784;
+  font-weight: 600;
+  text-align: center;
+  display: none;
+  z-index: 999;
+}
+body.has-selection .selection-bar { display: block; }
+</style>
+</head>
+<body>
+
+<h2>How should the analytics panel sit on the map?</h2>
+<p class="subtitle">Each option shows how the extension overlay appears while browsing viewpoint.ca. Click a card to select.</p>
+
+<div class="options-row">
+
+  <!-- OPTION A -->
+  <div class="option-card" data-choice="a" onclick="selectCard(this)">
+    <div class="selected-badge">✓ Selected</div>
+    <div class="card-label"><div class="letter">A</div> Peek Bar + Expand</div>
+    <div class="mockup-wrap">
+      <!-- map -->
+      <div class="map-bg"><div class="map-inner"></div></div>
+      <div class="vp-header">
+        <div class="vp-logo">VP</div>
+        <div class="vp-search"></div>
+        <span style="font-size:9px;color:#999">AGENTS · MAP · SELLING</span>
+      </div>
+      <div class="listing-sidebar">
+        <div class="listing-item"><div class="listing-dot" style="background:#2196F3"></div><span>$279k</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#f44336"></div><span>Sold</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#2196F3"></div><span>$495k</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#FF9800"></div><span>$15k</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#2196F3"></div><span>$255k</span></div>
+      </div>
+      <!-- map pins -->
+      <div class="map-pin" style="background:#2196F3;top:90px;left:130px"></div>
+      <div class="map-pin" style="background:#f44336;top:140px;left:180px"></div>
+      <div class="map-pin" style="background:#2196F3;top:110px;left:210px"></div>
+      <div class="map-pin" style="background:#FF9800;top:160px;left:145px"></div>
+      <!-- geofence btn -->
+      <div class="geo-btn">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3,6 8,2 13,6 11,13 5,13"/></svg>
+        Draw Zone
+      </div>
+      <!-- geofence polygon -->
+      <svg class="geofence-poly" style="inset:0;width:100%;height:100%;z-index:9;pointer-events:none" viewBox="0 0 300 340" preserveAspectRatio="none">
+        <polygon points="100,80 200,70 230,160 160,200 90,170" fill="rgba(67,99,216,0.12)" stroke="#4363d8" stroke-width="1.5" stroke-dasharray="4,3"/>
+      </svg>
+      <!-- PEEK BAR - expanded state -->
+      <div class="peek-bar">
+        <div class="peek-handle-bar"></div>
+        <div class="peek-handle" style="padding-top:14px">
+          <div class="peek-stat"><div class="peek-stat-val">$348k</div><div class="peek-stat-lbl">Avg Price</div></div>
+          <div class="peek-divider"></div>
+          <div class="peek-stat"><div class="peek-stat-val">47</div><div class="peek-stat-lbl">Listings</div></div>
+          <div class="peek-divider"></div>
+          <div class="peek-stat"><div class="peek-stat-val">23d</div><div class="peek-stat-lbl">Avg DOM</div></div>
+          <div class="peek-divider"></div>
+          <div class="peek-stat"><div class="peek-stat-val" style="color:#16c784">↑ 8%</div><div class="peek-stat-lbl">vs. 3mo</div></div>
+          <div class="peek-expand">▴ Charts</div>
+        </div>
+        <div class="peek-chart-row">
+          <div class="mini-chart">
+            <div class="mini-chart-lbl">Price trend</div>
+            <div class="mini-chart-fill" style="height:55%;clip-path:polygon(0 100%,0 60%,10% 50%,25% 55%,40% 40%,55% 45%,70% 30%,85% 25%,100% 15%,100% 100%)"></div>
+            <div class="mini-chart-line" style="clip-path:polygon(0 60%,10% 50%,25% 55%,40% 40%,55% 45%,70% 30%,85% 25%,100% 15%,100% 15%,100% 15%)"></div>
+          </div>
+          <div class="mini-chart">
+            <div class="mini-chart-lbl">Volume</div>
+            <div class="mini-chart-fill" style="background:rgba(22,199,132,0.12);height:60%;clip-path:polygon(0 100%,0 70%,15% 50%,30% 55%,45% 35%,60% 60%,75% 40%,90% 45%,100% 30%,100% 100%)"></div>
+            <div class="mini-chart-line" style="background:linear-gradient(90deg,transparent,#16c784,#16c784);clip-path:polygon(0 70%,15% 50%,30% 55%,45% 35%,60% 60%,75% 40%,90% 45%,100% 30%,100% 30%,100% 30%)"></div>
+          </div>
+          <div class="mini-chart">
+            <div class="mini-chart-lbl">DOM</div>
+            <div class="mini-chart-fill" style="background:rgba(245,130,49,0.1);height:50%;clip-path:polygon(0 100%,0 80%,20% 60%,40% 70%,60% 50%,80% 55%,100% 40%,100% 100%)"></div>
+            <div class="mini-chart-line" style="background:linear-gradient(90deg,transparent,#f58231,#f58231);clip-path:polygon(0 80%,20% 60%,40% 70%,60% 50%,80% 55%,100% 40%,100% 40%,100% 40%)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-desc">
+      <strong>Collapsible peek bar.</strong> A slim bar across the map bottom shows live summary stats (avg price, count, DOM). Drag up or click "Charts" to reveal sparklines. Map stays fully visible when collapsed. Best for casual browsing.
+    </div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="option-card" data-choice="b" onclick="selectCard(this)">
+    <div class="selected-badge">✓ Selected</div>
+    <div class="card-label"><div class="letter">B</div> Fixed Side Panel</div>
+    <div class="mockup-wrap">
+      <div class="map-bg"><div class="map-inner"></div></div>
+      <div class="vp-header">
+        <div class="vp-logo">VP</div>
+        <div class="vp-search"></div>
+        <span style="font-size:9px;color:#999">AGENTS · MAP</span>
+      </div>
+      <div class="listing-sidebar">
+        <div class="listing-item"><div class="listing-dot" style="background:#2196F3"></div><span>$279k</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#f44336"></div><span>Sold</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#2196F3"></div><span>$495k</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#FF9800"></div><span>$15k</span></div>
+      </div>
+      <div class="map-pin" style="background:#2196F3;top:100px;left:110px"></div>
+      <div class="map-pin" style="background:#f44336;top:130px;left:150px"></div>
+      <div class="map-pin" style="background:#2196F3;top:170px;left:130px"></div>
+      <div class="geo-btn" style="right:192px">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3,6 8,2 13,6 11,13 5,13"/></svg>
+        Draw Zone
+      </div>
+      <svg class="geofence-poly" style="inset:0;width:100%;height:100%;z-index:9;pointer-events:none" viewBox="0 0 300 340" preserveAspectRatio="none">
+        <polygon points="70,80 160,70 190,170 130,210 65,170" fill="rgba(67,99,216,0.12)" stroke="#4363d8" stroke-width="1.5" stroke-dasharray="4,3"/>
+      </svg>
+      <div class="side-panel">
+        <div class="panel-header">
+          <div class="panel-title">📊 Zone Analytics</div>
+          <div class="panel-subtitle">47 listings in view</div>
+        </div>
+        <div class="time-pills">
+          <div class="time-pill">1W</div>
+          <div class="time-pill active">1M</div>
+          <div class="time-pill">3M</div>
+          <div class="time-pill">1Y</div>
+        </div>
+        <div class="panel-stats">
+          <div class="p-stat"><div class="p-stat-val">$348k</div><div class="p-stat-lbl">Avg Price</div></div>
+          <div class="p-stat"><div class="p-stat-val">47</div><div class="p-stat-lbl">Count</div></div>
+          <div class="p-stat"><div class="p-stat-val" style="color:#16c784">↑8%</div><div class="p-stat-lbl">vs prev</div></div>
+          <div class="p-stat"><div class="p-stat-val">23d</div><div class="p-stat-lbl">Avg DOM</div></div>
+        </div>
+        <div class="panel-chart-area">
+          <div class="p-chart">
+            <div class="p-chart-label">Price / Month</div>
+            <div class="chart-bars" style="gap:2px">
+              <div class="chart-bar" style="height:40%"></div>
+              <div class="chart-bar" style="height:55%"></div>
+              <div class="chart-bar" style="height:45%"></div>
+              <div class="chart-bar" style="height:65%"></div>
+              <div class="chart-bar" style="height:70%"></div>
+              <div class="chart-bar" style="height:60%"></div>
+              <div class="chart-bar" style="height:80%"></div>
+              <div class="chart-bar" style="height:75%"></div>
+              <div class="chart-bar" style="height:90%"></div>
+            </div>
+          </div>
+          <div class="p-chart">
+            <div class="p-chart-label">Volume / Month</div>
+            <div class="chart-bars" style="gap:2px">
+              <div class="chart-bar" style="height:30%;background:#16c784"></div>
+              <div class="chart-bar" style="height:50%;background:#16c784"></div>
+              <div class="chart-bar" style="height:40%;background:#16c784"></div>
+              <div class="chart-bar" style="height:70%;background:#16c784"></div>
+              <div class="chart-bar" style="height:55%;background:#16c784"></div>
+              <div class="chart-bar" style="height:65%;background:#16c784"></div>
+              <div class="chart-bar" style="height:85%;background:#16c784"></div>
+              <div class="chart-bar" style="height:75%;background:#16c784"></div>
+              <div class="chart-bar" style="height:95%;background:#16c784"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-desc">
+      <strong>Persistent right panel.</strong> Always-visible analytics sidebar next to the map. Narrows the map area but keeps charts constantly visible. Familiar dashboard feel. Less map real estate.
+    </div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="option-card" data-choice="c" onclick="selectCard(this)">
+    <div class="selected-badge">✓ Selected</div>
+    <div class="card-label"><div class="letter">C</div> Full-Width Bottom Drawer</div>
+    <div class="mockup-wrap">
+      <div class="map-bg"><div class="map-inner"></div></div>
+      <div class="vp-header">
+        <div class="vp-logo">VP</div>
+        <div class="vp-search"></div>
+        <span style="font-size:9px;color:#999">AGENTS · MAP</span>
+      </div>
+      <div class="listing-sidebar">
+        <div class="listing-item"><div class="listing-dot" style="background:#2196F3"></div><span>$279k</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#f44336"></div><span>Sold</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#2196F3"></div><span>$495k</span></div>
+        <div class="listing-item"><div class="listing-dot" style="background:#FF9800"></div><span>$15k</span></div>
+      </div>
+      <div class="map-pin" style="background:#2196F3;top:85px;left:130px"></div>
+      <div class="map-pin" style="background:#f44336;top:110px;left:180px"></div>
+      <div class="map-pin" style="background:#2196F3;top:130px;left:150px"></div>
+      <div class="map-pin" style="background:#FF9800;top:100px;left:200px"></div>
+      <div class="geo-btn">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3,6 8,2 13,6 11,13 5,13"/></svg>
+        Draw Zone
+      </div>
+      <svg class="geofence-poly" style="inset:0;width:100%;height:100%;z-index:9;pointer-events:none" viewBox="0 0 300 340" preserveAspectRatio="none">
+        <polygon points="90,75 200,65 230,140 165,175 85,155" fill="rgba(67,99,216,0.12)" stroke="#4363d8" stroke-width="1.5" stroke-dasharray="4,3"/>
+      </svg>
+      <div class="bottom-drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-topbar" style="padding-top:10px">
+          <div class="drawer-title">Analytics</div>
+          <div class="metric-tabs">
+            <div class="metric-tab active">Avg Price</div>
+            <div class="metric-tab">Volume</div>
+            <div class="metric-tab">DOM</div>
+            <div class="metric-tab">$/sqft</div>
+          </div>
+          <div class="drawer-time">
+            <div class="d-time">1W</div>
+            <div class="d-time active">1M</div>
+            <div class="d-time">3M</div>
+            <div class="d-time">1Y</div>
+          </div>
+        </div>
+        <div class="drawer-content">
+          <div class="drawer-stats-col">
+            <div class="d-stat">
+              <div class="d-stat-val">$348k</div>
+              <div class="d-stat-lbl">Average</div>
+              <div class="d-stat-delta">↑ 8% vs prev</div>
+            </div>
+            <div class="d-stat">
+              <div class="d-stat-val">47</div>
+              <div class="d-stat-lbl">Count</div>
+            </div>
+            <div class="d-stat">
+              <div class="d-stat-val">$42k</div>
+              <div class="d-stat-lbl">Std Dev</div>
+            </div>
+          </div>
+          <div class="drawer-chart-col">
+            <div class="d-chart">
+              <div class="d-chart-lbl">Weekly avg price</div>
+              <svg class="sparkline" viewBox="0 0 100 40" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#4363d8" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="#4363d8" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <polygon points="0,40 0,32 12,28 24,30 36,22 48,25 60,18 72,15 84,10 100,6 100,40" fill="url(#grad1)"/>
+                <polyline points="0,32 12,28 24,30 36,22 48,25 60,18 72,15 84,10 100,6" fill="none" stroke="#4363d8" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="d-chart">
+              <div class="d-chart-lbl">Weekly volume</div>
+              <svg class="sparkline" viewBox="0 0 100 40" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="grad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#16c784" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="#16c784" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <polygon points="0,40 0,35 12,28 24,32 36,20 48,30 60,22 72,26 84,15 100,18 100,40" fill="url(#grad2)"/>
+                <polyline points="0,35 12,28 24,32 36,20 48,30 60,22 72,26 84,15 100,18" fill="none" stroke="#16c784" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-desc">
+      <strong>Full-width bottom drawer.</strong> Spans the full map width. Metric tabs (Avg Price, Volume, DOM, $/sqft) + time range toggle in the header. Stats summary column + charts side by side. Drag handle to expand/collapse.
+    </div>
+  </div>
+
+</div>
+
+<div class="selection-bar" id="selBar">— Select an option above —</div>
+
+<script>
+function selectCard(el) {
+  document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.body.classList.add('has-selection');
+  document.getElementById('selBar').textContent = '✓ ' + el.querySelector('.card-label').textContent.trim() + ' selected — let me know in the terminal or keep browsing';
+  // fire event for state tracking
+  if (window.__companion) window.__companion.select(el.dataset.choice, el.querySelector('.card-label').textContent.trim());
+}
+</script>
+</body>
+</html>
