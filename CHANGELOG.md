@@ -2,6 +2,22 @@
 
 All notable changes to SeeLevel are documented here.
 
+## [v0.1.1] - 2026-05-28
+
+### Fixed
+
+- **Panel data no longer disappears at idle** — Chrome's MV3 service worker is
+  terminated after ~30 seconds of inactivity. On restart, the relay and panel
+  ports both reconnect with ~1 s backoff. If the panel reconnected first, the
+  subsequent relay reconnect triggered a `tab_loaded` message that wiped the
+  panel's in-memory session — the same signal used for genuine page navigation.
+  The relay now connects as `"relay-reconnect"` when its content-script context
+  holds live session data, and the service worker skips the `tab_loaded` reset
+  for that name. The relay session maps are also no longer cleared on
+  `panel_opened`, since on a genuine new page load they are always empty anyway
+  (new content-script context), and on SW-restart reconnects clearing them
+  discarded live data the panel still needed.
+
 ## [v0.1.0] - 2026-05-25
 
 Initial release. SeeLevel is a Chrome MV3 side-panel extension that turns

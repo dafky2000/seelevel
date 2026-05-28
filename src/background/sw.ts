@@ -18,20 +18,24 @@ function safePost(port: chrome.runtime.Port, msg: unknown): void {
 }
 
 chrome.runtime.onConnect.addListener((port) => {
-  if (port.name === "relay") {
+  // "relay" = fresh page load (new content-script context, empty session).
+  // "relay-reconnect" = relay re-dialing after a SW restart; the content-script
+  //   context (and its sessionListings) is still alive. We must NOT send
+  //   tab_loaded in that case — it would wipe the panel's in-memory store even
+  //   though the data is still valid and the user didn't navigate anywhere.
+  if (port.name === "relay" || port.name === "relay-reconnect") {
     const tabId = port.sender?.tab?.id;
     if (tabId === undefined) return; // not a tab-scoped connection - ignore
     relayPorts.set(tabId, port);
 
-    // If the panel is already open when this relay connects (new viewpoint
-    // tab opened, or existing tab navigated within viewpoint.ca), synthesise
-    // tab_loaded for the panel (reset that tab's TabStore - it may hold stale
-    // state from the pre-navigation page) and panel_opened for the new relay
-    // (it can start emitting).
     if (panelPort) {
-      // Order matters: panel must reset its TabStore (tab_loaded) before the
-      // relay starts re-emitting snapshots (triggered by panel_opened).
-      safePost(panelPort, { type: "tab_loaded", tabId } satisfies PanelDown);
+      if (port.name === "relay") {
+        // Genuine new page load: panel may hold stale state from the previous
+        // page. Reset it before the relay starts re-emitting.
+        // Order matters: panel must reset its TabStore (tab_loaded) before the
+        // relay starts re-emitting snapshots (triggered by panel_opened).
+        safePost(panelPort, { type: "tab_loaded", tabId } satisfies PanelDown);
+      }
       safePost(port, { type: "panel_opened" } satisfies RelayDown);
     }
 

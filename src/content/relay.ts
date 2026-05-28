@@ -25,10 +25,10 @@ import {
 let lastBbox: BBox | null = null;
 let lastNewTodayRaw = ""; // last seen localStorage["vp.new_today"] payload
 
-// Buffer of all listings/properties seen since the last ViewPoint mode switch
-// or panel-open event. Replayed nowhere - the buffer just persists state for
-// listing/search responses that came in while the panel was closed; the next
-// panel_opened wipes everything.
+// Buffer of all listings/properties seen since the last ViewPoint mode switch.
+// Persists across SW restarts (same content-script context). Cleared only by
+// clearSession() on explicit mode switch; openPort() signals the SW whether
+// this map is populated so the panel knows not to reset its in-memory store.
 const sessionListings = new Map<string, ListingRow>();
 const sessionProperties = new Map<string, PropertyRow>();
 
@@ -41,7 +41,14 @@ let reconnectTimeout: number | undefined;
 let reconnectDelay = 1000;
 
 function openPort(): chrome.runtime.Port {
-  const p = chrome.runtime.connect({ name: "relay" });
+  // Use "relay-reconnect" when we have live session data. A fresh content-script
+  // context always starts with empty maps, so this name only appears on SW-restart
+  // reconnects. The SW uses it to skip the tab_loaded reset that would otherwise
+  // wipe the panel's in-memory store.
+  const name = (sessionListings.size > 0 || sessionProperties.size > 0)
+    ? "relay-reconnect"
+    : "relay";
+  const p = chrome.runtime.connect({ name });
   p.onMessage.addListener((msg: RelayDown) => {
     // Any inbound message means the connection is bidirectionally working;
     // reset the backoff so a future SW restart starts at 1s, not where the
@@ -96,11 +103,13 @@ function emit(payload: ContentToPanel): void {
   } catch { /* port disconnected mid-call - reconnect will fire */ }
 }
 
-// Wipe buffered state and re-emit current snapshots. Called on panel_opened
-// so a freshly-opened panel sees only fresh data - no stale buffer leak.
+// Re-emit current snapshots to a freshly-connected panel. Called on panel_opened.
+// We no longer clear the session maps here: on a genuine new page load the maps
+// are already empty (new content-script context), so clearing was always a no-op
+// in that path. On a SW-restart reconnect the maps hold live data that the panel
+// still needs - clearing them here would cause a second SW restart to wipe the
+// session even though "relay-reconnect" prevented the first one.
 function clearAndReEmit(): void {
-  sessionListings.clear();
-  sessionProperties.clear();
   lastNewTodayRaw = ""; // force pollNewTodayCache to re-emit on next tick
   if (lastBbox) emit({ type: "viewport_bbox", bbox: lastBbox });
   emit({ type: "zone", polygon: getCurrentPolygon() });
