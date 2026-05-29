@@ -32,12 +32,15 @@ screen right now), **Session** (everything you've browsed this trip),
 
 ## Install
 
-### From the Chrome Web Store
+### From the Chrome Web Store (recommended)
 
-Coming soon. Until then, either of the paths below works in a couple of
-minutes.
+**[Install SeeLevel from the Chrome Web Store](https://chromewebstore.google.com/detail/seelevel/pfgbjjnhgeeblcoflnijcdkkmhfmimif)**
 
-### Download the prebuilt zip (recommended)
+Chrome handles installs and updates automatically. Once installed, visit
+[viewpoint.ca/map](https://www.viewpoint.ca/map) and click the SeeLevel
+icon in your toolbar. The side panel opens on the right.
+
+### Download the prebuilt zip
 
 1. Go to the [Releases page](https://github.com/dafky2000/seelevel/releases/latest)
    and download `seelevel-X.Y.Z.zip`.
