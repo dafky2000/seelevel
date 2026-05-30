@@ -22,6 +22,9 @@ import { ScopeSelector } from "./components/ScopeSelector.tsx";
 import { WindowPicker } from "./components/WindowPicker.tsx";
 import { StatsRow } from "./components/StatsRow.tsx";
 import { TimeSeriesChart } from "./components/TimeSeriesChart.tsx";
+import { PriceHistogramChart } from "./components/PriceHistogramChart.tsx";
+import { priceHistogram } from "./lib/histogram.ts";
+import type { PriceHistogram } from "./lib/histogram.ts";
 import { ZoneCoverage } from "./components/ZoneCoverage.tsx";
 import { ExportButton } from "./components/ExportButton.tsx";
 import { EmptyState } from "./components/EmptyState.tsx";
@@ -52,6 +55,10 @@ function App() {
   const tabStores = useRef<Map<number, TabStore>>(new Map());
   const [store, setStore] = useState<TabStore | null>(null);
   const [sections, setSections] = useState<MetricSection[] | null>(null);
+  // Price distribution for the most recent complete window (null = no data).
+  const [priceHist, setPriceHist] = useState<
+    { hist: PriceHistogram; label: string } | null
+  >(null);
   const portRef = useRef<chrome.runtime.Port | null>(null);
   // activeTabId mirrored into a ref so the (mount-once) port message handler
   // can read its current value without re-subscribing on every tab switch.
@@ -237,11 +244,13 @@ function App() {
   useEffect(() => {
     if (!store) {
       setSections(null);
+      setPriceHist(null);
       return;
     }
     const visible = scopedListings(store);
     if (visible.length === 0) {
       setSections(null);
+      setPriceHist(null);
       return;
     }
     const availSizes = availableWindowSizes(visible.length);
@@ -276,6 +285,19 @@ function App() {
       }
     }
     setSections(sects);
+
+    // Price distribution: bin the most recent complete window (the same period
+    // the headline cards summarize), respecting the active/sold side filter.
+    const complete = buckets.filter((b) => !b.isPartial);
+    const latestBucket = complete.length > 0
+      ? complete[complete.length - 1]
+      : buckets[buckets.length - 1] ?? null;
+    const hist = latestBucket
+      ? priceHistogram(visible, latestBucket, side ? [side] : null, 20)
+      : null;
+    setPriceHist(
+      hist && hist.hasData ? { hist, label: latestBucket!.label } : null,
+    );
   }, [store]);
 
   const updateStore = useCallback((patch: Partial<TabStore>) => {
@@ -410,19 +432,38 @@ function App() {
               value cards for the yearly window. Export lives in the footer. */
             }
             <div class="seelevel-metrics">
-              {sections?.map((sec) => (
-                <div class="seelevel-metric-section" key={sec.metric}>
-                  <div class="seelevel-metric-section__title">{sec.label}</div>
-                  <StatsRow summary={sec.summary} metric={sec.metric} />
-                  {!isYearly && (
-                    <TimeSeriesChart
-                      summary={sec.summary}
-                      metric={sec.metric}
-                      windowSize={store.windowSize}
-                    />
-                  )}
-                </div>
-              ))}
+              {sections?.flatMap((sec) => {
+                const els = [
+                  <div class="seelevel-metric-section" key={sec.metric}>
+                    <div class="seelevel-metric-section__title">
+                      {sec.label}
+                    </div>
+                    <StatsRow summary={sec.summary} metric={sec.metric} />
+                    {!isYearly && (
+                      <TimeSeriesChart
+                        summary={sec.summary}
+                        metric={sec.metric}
+                        windowSize={store.windowSize}
+                      />
+                    )}
+                  </div>,
+                ];
+                // The price distribution sits directly beneath the Volume metric.
+                if (sec.metric === "volume" && priceHist) {
+                  els.push(
+                    <div class="seelevel-metric-section" key="price-dist">
+                      <div class="seelevel-metric-section__title">
+                        Price distribution
+                      </div>
+                      <PriceHistogramChart
+                        histogram={priceHist.hist}
+                        windowLabel={priceHist.label}
+                      />
+                    </div>,
+                  );
+                }
+                return els;
+              })}
             </div>
 
             <div class="seelevel-footer">

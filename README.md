@@ -5,10 +5,10 @@
 **The Nova Scotia market, on the level.** _View → See. Point → Level._
 Perception meets a reference line.
 
-SeeLevel is a Chrome side-panel extension that turns the ViewPoint.ca listings
-you browse into price, volume, days-on-market, list-to-sold and price-per-sqft
-trends - a clear, calm read on the Nova Scotia market. Personal, non-commercial
-use only.
+SeeLevel is a Chrome side-panel extension that turns the listings you browse on
+ViewPoint.ca and Engel & Völkers Nova Scotia into price, volume, days-on-market,
+list-to-sold and price-per-sqft trends - a clear, calm read on the Nova Scotia
+market. Personal, non-commercial use only.
 
 It is a passive observer: every byte it processes is one your browser was
 already going to fetch. No new requests. No scraping. No telemetry. Close the
@@ -23,10 +23,12 @@ side panel and the data is gone.
 Five metric sections stacked in one scrolling view - Price, Volume, Days on
 Market, Price/sqft, List → Sold %. Each section has headline stats (average,
 median, std dev), an Active vs Sold split, and a uPlot time-series chart with
-hover tooltips. Window picker at the top: Weekly, Monthly, Yearly. Scope tabs
-across the header: **Viewport** (what's on screen right now), **Session**
-(everything you've browsed this trip), **Zone** (only listings inside a polygon
-you drew on the map).
+hover tooltips. Beneath Volume, a **price distribution** histogram shows how
+many listings fall in each price band for the current window. Window picker at
+the top: Weekly, Monthly, Yearly. Scope tabs across the header: **Viewport**
+(what's on screen right now), **Session** (everything you've browsed this trip),
+**Zone** (only listings inside a polygon you drew on the map). Works on
+`viewpoint.ca/map` and `engelvoelkersnovascotia.com/map`.
 
 ---
 
@@ -86,10 +88,17 @@ refresh arrow on the SeeLevel card in `chrome://extensions`.
 
 - **📈 Five metrics, one scroll.** Price, Volume, Days on Market, Price/sqft,
   List → Sold % - stacked, not tabbed.
-- **🗺️ Draw a zone.** Polygon on top of ViewPoint's Google Maps view (Leaflet +
+- **🌐 Two sites, one panel.** `viewpoint.ca/map` and
+  `engelvoelkersnovascotia.com/map` share the same panel, scopes, charts, and
+  zone tool.
+- **🗺️ Draw a zone.** Polygon on top of the site's Google Maps view (Leaflet +
   Geoman). Filter every stat to the shape.
 - **📊 Real charts.** uPlot time-series with monthly buckets, hover tooltip,
   configurable date windows, split Active / Sold series.
+- **📊 Price distribution.** A histogram of how many listings sit in each price
+  band for the current window - evenly binned under $1M (minimum
+  $25k wide), with
+  "$1M+", "$2M+", and "$5M+" tail buckets so a lone outlier doesn't flatten it.
 - **🎯 Zone coverage.** A progress bar tells you how much of your drawn zone
   you've actually visited, so the numbers are never silently extrapolated.
 - **↓ Export CSV.** Aggregated buckets only, with a <5-listing floor and an
@@ -204,9 +213,9 @@ The load-bearing implementation choices, lifted from the initial commit message:
 | `sidePanel` | The UI surface. |
 
 That's the entire `permissions` list. No `host_permissions` key either. Access
-to viewpoint.ca is granted by `content_scripts.matches`
-(`*://*.viewpoint.ca/map*`), which is the same install-time UX as
-`host_permissions` would be ("Read and modify data on viewpoint.ca") but doesn't
+to each site is granted by `content_scripts.matches` (`*://*.viewpoint.ca/map*`
+and `https://engelvoelkersnovascotia.com/*`), which is the same install-time UX
+as `host_permissions` would be ("Read and modify data on this site") but doesn't
 trigger Chrome Web Store's "Limited Host Use" in-depth review path.
 
 Notably absent: `activeTab`, `storage`, `tabs`, `scripting`, `webRequest`,

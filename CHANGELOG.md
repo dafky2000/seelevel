@@ -2,6 +2,42 @@
 
 All notable changes to SeeLevel are documented here.
 
+## [v0.2.0] - 2026-05-30
+
+### Added
+
+- **Multi-site support — Engel & Völkers Nova Scotia.** SeeLevel now runs on
+  `engelvoelkersnovascotia.com/map` in addition to `viewpoint.ca/map`, sharing
+  the same side panel, scopes, charts, and zone tool. A site-specific adapter (a
+  MAIN-world entry, an ISOLATED relay, and a RESO row parser) observes the
+  listings the page already fetches, while the shared `google.maps.Map`
+  constructor hook drives the map bounds and geofence overlay on both sites. The
+  footer disclaimer is now site-aware.
+- **Price distribution histogram.** A new chart beneath the Volume section plots
+  price on the x-axis and listing count on the y-axis for the most recent
+  complete window, with List (teal) and Sold (amber) overlaid. The dense sub-$1M
+  range gets evenly-spaced bins (a minimum of $25k wide), and the luxury tail is
+  collapsed into "$1M+", "$2M+", and "$5M+" buckets shown only when populated —
+  so a single multi-million-dollar outlier can't crush the distribution or leave
+  a long run of empty bars. It respects the active scope and the active/sold
+  search filter, and renders in the yearly window too.
+- **In-flight and oversize feedback.** A spinner shows while a fetch is in
+  flight, and an oversize notice appears when a result set exceeds the cap
+  rather than silently under-counting.
+
+### Fixed
+
+- **Engel & Völkers listings now populate the panel.** The fetch observer reads
+  the request body from the `Request` object when `init.body` is undefined,
+  instead of letting `fetch()` consume it first (which left the clone empty).
+- **`google.maps` hook works for SPAs that load Maps via `importLibrary`.** The
+  constructor patch now also intercepts the dynamic-import path, so the map
+  bounds and overlay attach on sites that don't expose the classic global.
+- **Zone results include Engel & Völkers listings.** Coordinates are no longer
+  wiped when a listing has no `pid` → property join to resolve against; listings
+  that already carry their own latitude/longitude are preserved for the
+  point-in-polygon zone filter.
+
 ## [v0.1.1] - 2026-05-28
 
 ### Fixed

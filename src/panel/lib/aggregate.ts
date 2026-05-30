@@ -38,7 +38,7 @@ const EXPORT_FLOOR = 5; // buckets below this are flagged (suppressed in CSV exp
 // ─── Series definitions ───────────────────────────────────────────────────────
 // sold/active is transparent: each series picks its own value + date field, so
 // the distinction surfaces as data (List vs Sold) rather than a user filter.
-interface SeriesDef {
+export interface SeriesDef {
   label: string;
   side: SeriesSide;
   value: (l: ListingRow) => number | null;
@@ -78,7 +78,7 @@ function ppsf(price: number | null, tla: number | null): number | null {
   return price && tla && tla > 0 ? price / tla : null;
 }
 
-function metricSeries(metric: MetricKey): SeriesDef[] {
+export function metricSeries(metric: MetricKey): SeriesDef[] {
   switch (metric) {
     case "price":
       return [
