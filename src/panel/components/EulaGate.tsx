@@ -20,8 +20,8 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
           lineHeight: 1.6,
         }}
       >
-        Personal, non-commercial use only. Commercial or professional users
-        must contact ViewPoint.ca directly before use.
+        Personal, non-commercial use only. Commercial or professional users must
+        contact ViewPoint.ca directly before use.
       </p>
       <p
         style={{
@@ -34,7 +34,7 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
         transmit, or redistribute listing data.
       </p>
       <button
-        class="vpa-btn vpa-btn--primary"
+        class="seelevel-btn seelevel-btn--primary"
         style={{
           fontSize: "11px",
           padding: "8px 0",

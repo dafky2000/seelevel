@@ -8,7 +8,12 @@ import type {
   PanelUp,
   TabStore,
 } from "../types.ts";
-import { defaultTabStore, mergeListings, resolveCoordinates, scopedListings } from "./store.ts";
+import {
+  defaultTabStore,
+  mergeListings,
+  resolveCoordinates,
+  scopedListings,
+} from "./store.ts";
 import { availableWindowSizes, buildBuckets } from "./lib/bucket.ts";
 import { aggregate } from "./lib/aggregate.ts";
 import { computeCoverage } from "./lib/coverage.ts";
@@ -118,7 +123,10 @@ function App() {
       }
 
       if (payload.type === "listings") {
-        const resolved = resolveCoordinates(payload.listings, payload.properties);
+        const resolved = resolveCoordinates(
+          payload.listings,
+          payload.properties,
+        );
         s.session = mergeListings(s.session, resolved);
         s.viewportListings = payload.kind === "search" ? resolved : null;
         if (payload.kind === "search") s.searchStatus = payload.status;
@@ -194,9 +202,15 @@ function App() {
   // Recompute every metric whenever the store changes; auto-switch the window
   // size to the coarsest available one if the current size is no longer offered.
   useEffect(() => {
-    if (!store) { setSections(null); return; }
+    if (!store) {
+      setSections(null);
+      return;
+    }
     const visible = scopedListings(store);
-    if (visible.length === 0) { setSections(null); return; }
+    if (visible.length === 0) {
+      setSections(null);
+      return;
+    }
     const availSizes = availableWindowSizes(visible.length);
     if (!availSizes.includes(store.windowSize)) {
       // Only weekly can fall out of range - drop to monthly (always available).
@@ -221,8 +235,12 @@ function App() {
     const sects: MetricSection[] = [];
     for (const m of METRICS) {
       const full = aggregate(visible, m.key, buckets);
-      const series = side ? full.series.filter((s) => s.side === side) : full.series;
-      if (series.length > 0) sects.push({ metric: m.key, label: m.label, summary: { series } });
+      const series = side
+        ? full.series.filter((s) => s.side === side)
+        : full.series;
+      if (series.length > 0) {
+        sects.push({ metric: m.key, label: m.label, summary: { series } });
+      }
     }
     setSections(sects);
   }, [store]);
@@ -256,17 +274,53 @@ function App() {
   const zoneNoPolygon = !!store && store.scope === "zone" && !store.polygon;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        overflow: "hidden",
+      }}
+    >
       {/* Header */}
-      <div class="vpa-section">
-        <div class="vpa-row" style={{ marginBottom: "7px" }}>
-          <strong style={{ fontSize: "11px" }}>See<span style={{ color: "var(--color-accent)" }}>Level</span></strong>
-          {listingCount > 0 && <span class="vpa-label" style={{ background: "oklch(30% 0.09 205 / 0.5)", padding: "1px 6px", borderRadius: "8px" }}>{listingCount} listings</span>}
-          <span style={{ marginLeft: "auto", width: "6px", height: "6px", borderRadius: "50%", background: listingCount > 0 ? "var(--color-green)" : "var(--color-muted)", boxShadow: listingCount > 0 ? "0 0 4px var(--color-green)" : "none" }} />
+      <div class="seelevel-section">
+        <div class="seelevel-row" style={{ marginBottom: "7px" }}>
+          <strong style={{ fontSize: "11px" }}>
+            See<span style={{ color: "var(--color-accent)" }}>Level</span>
+          </strong>
+          {listingCount > 0 && (
+            <span
+              class="seelevel-label"
+              style={{
+                background: "oklch(30% 0.09 205 / 0.5)",
+                padding: "1px 6px",
+                borderRadius: "8px",
+              }}
+            >
+              {listingCount} listings
+            </span>
+          )}
+          <span
+            style={{
+              marginLeft: "auto",
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              background: listingCount > 0
+                ? "var(--color-green)"
+                : "var(--color-muted)",
+              boxShadow: listingCount > 0
+                ? "0 0 4px var(--color-green)"
+                : "none",
+            }}
+          />
         </div>
         {store && (
           <>
-            <ScopeSelector scope={store.scope} onScope={(scope) => updateStore({ scope })} />
+            <ScopeSelector
+              scope={store.scope}
+              onScope={(scope) => updateStore({ scope })}
+            />
             {store.scope === "zone" && coverage !== null && (
               <ZoneCoverage coverage={coverage} count={listingCount} />
             )}
@@ -274,67 +328,81 @@ function App() {
         )}
       </div>
 
-      {!store ? (
-        <EmptyState />
-      ) : zoneNoPolygon ? (
-        <div class="vpa-empty">
-          <div class="vpa-empty__icon">⬡</div>
-          <div class="vpa-empty__text">
-            No zone drawn yet.<br />
-            Use the pulsing <strong>⬡ Draw Zone</strong> button on the map to
-            draw an area - results are then filtered to listings inside it.
+      {!store ? <EmptyState /> : zoneNoPolygon
+        ? (
+          <div class="seelevel-empty">
+            <div class="seelevel-empty__icon">⬡</div>
+            <div class="seelevel-empty__text">
+              No zone drawn yet.<br />
+              Use the pulsing <strong>⬡ Draw Zone</strong>{" "}
+              button on the map to draw an area - results are then filtered to
+              listings inside it.
+            </div>
           </div>
-        </div>
-      ) : listingCount === 0 ? (
-        <EmptyState />
-      ) : (
-        <>
-          <div class="vpa-section">
-            <WindowPicker
-              windowSize={store.windowSize}
-              alignmentMode={store.alignmentMode}
-              anchorDayOfWeek={store.anchorDayOfWeek}
-              anchorDayOfMonth={store.anchorDayOfMonth}
-              availableSizes={availableWindowSizes(listingCount)}
-              onWindowSize={(windowSize) => updateStore({ windowSize })}
-              onAlignmentMode={(alignmentMode) => updateStore({ alignmentMode })}
-              onAnchorDow={(dow) => updateStore({ anchorDayOfWeek: dow })}
-              onAnchorDom={(dom) => updateStore({ anchorDayOfMonth: dom })}
-            />
-          </div>
+        )
+        : listingCount === 0
+        ? <EmptyState />
+        : (
+          <>
+            <div class="seelevel-section">
+              <WindowPicker
+                windowSize={store.windowSize}
+                alignmentMode={store.alignmentMode}
+                anchorDayOfWeek={store.anchorDayOfWeek}
+                anchorDayOfMonth={store.anchorDayOfMonth}
+                availableSizes={availableWindowSizes(listingCount)}
+                onWindowSize={(windowSize) => updateStore({ windowSize })}
+                onAlignmentMode={(alignmentMode) =>
+                  updateStore({ alignmentMode })}
+                onAnchorDow={(dow) => updateStore({ anchorDayOfWeek: dow })}
+                onAnchorDom={(dom) => updateStore({ anchorDayOfMonth: dom })}
+              />
+            </div>
 
-          {/* Unified metric list - every metric stacked; charts, or plain
-              value cards for the yearly window. Export lives in the footer. */}
-          <div class="vpa-metrics">
-            {sections?.map((sec) => (
-              <div class="vpa-metric-section" key={sec.metric}>
-                <div class="vpa-metric-section__title">{sec.label}</div>
-                <StatsRow summary={sec.summary} metric={sec.metric} />
-                {!isYearly && (
-                  <TimeSeriesChart
-                    summary={sec.summary}
-                    metric={sec.metric}
-                    windowSize={store.windowSize}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+            {
+              /* Unified metric list - every metric stacked; charts, or plain
+              value cards for the yearly window. Export lives in the footer. */
+            }
+            <div class="seelevel-metrics">
+              {sections?.map((sec) => (
+                <div class="seelevel-metric-section" key={sec.metric}>
+                  <div class="seelevel-metric-section__title">{sec.label}</div>
+                  <StatsRow summary={sec.summary} metric={sec.metric} />
+                  {!isYearly && (
+                    <TimeSeriesChart
+                      summary={sec.summary}
+                      metric={sec.metric}
+                      windowSize={store.windowSize}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
 
-          <div class="vpa-footer">
-            <button class="vpa-btn vpa-btn--ghost" onClick={() => {
-              updateStore({ session: [], viewportListings: null, fetchedBboxes: [], viewportBbox: null, polygon: null, scope: "viewport" });
-              if (activeTabId !== null) {
-                postToRelay(activeTabId, { type: "clear_zone" });
-              }
-            }}>
-              {store.scope === "zone" ? "Clear data" : "Clear"}
-            </button>
-            <ExportButton sections={sections} />
-            <span class="vpa-footer__info">{listingCount} in scope</span>
-          </div>
-        </>
-      )}
+            <div class="seelevel-footer">
+              <button
+                class="seelevel-btn seelevel-btn--ghost"
+                onClick={() => {
+                  updateStore({
+                    session: [],
+                    viewportListings: null,
+                    fetchedBboxes: [],
+                    viewportBbox: null,
+                    polygon: null,
+                    scope: "viewport",
+                  });
+                  if (activeTabId !== null) {
+                    postToRelay(activeTabId, { type: "clear_zone" });
+                  }
+                }}
+              >
+                {store.scope === "zone" ? "Clear data" : "Clear"}
+              </button>
+              <ExportButton sections={sections} />
+              <span class="seelevel-footer__info">{listingCount} in scope</span>
+            </div>
+          </>
+        )}
       <Disclaimer />
     </div>
   );

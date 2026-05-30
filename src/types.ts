@@ -26,9 +26,9 @@ export interface ListingRow {
   close_dt: string | null;
   list_dt: string | null;
   sold_dt: string | null;
-  tla: number | null;       // total living area (sqft)
+  tla: number | null; // total living area (sqft)
   pid: string | null;
-  lat: number | null;       // resolved from paired PropertyRow
+  lat: number | null; // resolved from paired PropertyRow
   lng: number | null;
 }
 
@@ -42,7 +42,7 @@ export interface PropertyRow {
 export interface InterceptEvent {
   listings: RawListing[];
   properties: RawProperty[];
-  searchUrl: string;        // full URL including bbox + status params
+  searchUrl: string; // full URL including bbox + status params
 }
 
 // deno-lint-ignore no-explicit-any
@@ -97,17 +97,17 @@ export type PanelDown =
 // search mode (`viewportListings`), otherwise session within `viewportBbox`.
 export interface TabStore {
   tabId: number;
-  session: ListingRow[];                 // master list - accumulates across pans & searches
+  session: ListingRow[]; // master list - accumulates across pans & searches
   viewportListings: ListingRow[] | null; // verbatim search result (search mode); null otherwise
-  viewportBbox: BBox | null;             // live map bounds - filters session for non-search modes
-  fetchedBboxes: BBox[];                 // accumulated request bounds - for zone coverage
-  polygon: [number, number][] | null;    // the drawn zone - the zone filter
+  viewportBbox: BBox | null; // live map bounds - filters session for non-search modes
+  fetchedBboxes: BBox[]; // accumulated request bounds - for zone coverage
+  polygon: [number, number][] | null; // the drawn zone - the zone filter
   scope: ScopeKey;
   searchStatus: SearchStatus; // last explicit search filter - hides the irrelevant series
   windowSize: WindowSize;
   alignmentMode: AlignmentMode;
-  anchorDayOfWeek: number;   // 0=Sun … 6=Sat; default 1=Mon
-  anchorDayOfMonth: number;  // 1-31; default 1
+  anchorDayOfWeek: number; // 0=Sun … 6=Sat; default 1=Mon
+  anchorDayOfMonth: number; // 1-31; default 1
 }
 
 export function defaultTabStore(tabId: number): TabStore {
@@ -126,3 +126,15 @@ export function defaultTabStore(tabId: number): TabStore {
     anchorDayOfMonth: 1,
   };
 }
+
+// Wire protocol event names — MAIN ↔ ISOLATED via document CustomEvent.
+// Adapter-agnostic; ViewPoint and Engel & Völkers adapters both use them.
+// Detail shapes are adapter-specific (see each adapter's main/relay pair).
+export const EVT = {
+  listings: "seelevel:listings",
+  bbox: "seelevel:bbox",
+  mapbusy: "seelevel:mapbusy",
+  oversize: "seelevel:oversize",
+  clearSession: "seelevel:clear-session",
+  loadingState: "seelevel:loading-state",
+} as const;

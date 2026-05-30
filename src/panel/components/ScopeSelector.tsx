@@ -7,15 +7,19 @@ const SCOPES: { key: ScopeKey; label: string }[] = [
   { key: "zone", label: "⬡ Zone" },
 ];
 
-export function ScopeSelector({ scope, onScope }: { scope: ScopeKey; onScope: (s: ScopeKey) => void }) {
+export function ScopeSelector(
+  { scope, onScope }: { scope: ScopeKey; onScope: (s: ScopeKey) => void },
+) {
   return (
-    <div class="vpa-row">
-      <span class="vpa-label">Scope</span>
-      <div class="vpa-tabs" style={{ flex: 1 }}>
+    <div class="seelevel-row">
+      <span class="seelevel-label">Scope</span>
+      <div class="seelevel-tabs" style={{ flex: 1 }}>
         {SCOPES.map(({ key, label }) => (
           <button
             key={key}
-            class={`vpa-tab vpa-tab--${key}${scope === key ? " vpa-tab--active" : ""}`}
+            class={`seelevel-tab seelevel-tab--${key}${
+              scope === key ? " seelevel-tab--active" : ""
+            }`}
             onClick={() => onScope(key)}
           >
             {label}

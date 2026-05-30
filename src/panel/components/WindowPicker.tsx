@@ -49,17 +49,17 @@ export function WindowPicker({
 
   return (
     <div style={{ position: "relative" }}>
-      <div class="vpa-window-row">
-        <span class="vpa-label">Window</span>
-        <div class="vpa-window-tabs">
+      <div class="seelevel-window-row">
+        <span class="seelevel-label">Window</span>
+        <div class="seelevel-window-tabs">
           {WINDOWS.map(({ key, label }) => {
             const disabled = !availableSizes.includes(key);
             return (
               <button
                 key={key}
-                class={`vpa-window-tab${
-                  windowSize === key ? " vpa-window-tab--active" : ""
-                }${disabled ? " vpa-window-tab--disabled" : ""}`}
+                class={`seelevel-window-tab${
+                  windowSize === key ? " seelevel-window-tab--active" : ""
+                }${disabled ? " seelevel-window-tab--disabled" : ""}`}
                 disabled={disabled}
                 title={disabled ? WITHHELD_TOOLTIP : undefined}
                 onClick={() => !disabled && onWindowSize(key)}
@@ -70,10 +70,10 @@ export function WindowPicker({
           })}
         </div>
         {hasConfig && (
-          <div class="vpa-align-split">
+          <div class="seelevel-align-split">
             <button
-              class={`vpa-align-btn${
-                alignmentMode === "today" ? " vpa-align-btn--active" : ""
+              class={`seelevel-align-btn${
+                alignmentMode === "today" ? " seelevel-align-btn--active" : ""
               }`}
               onClick={() => {
                 onAlignmentMode("today");
@@ -84,8 +84,10 @@ export function WindowPicker({
             </button>
             <div style={{ width: "1px", background: "var(--color-border)" }} />
             <button
-              class={`vpa-align-btn${
-                alignmentMode === "calendar" ? " vpa-align-btn--active" : ""
+              class={`seelevel-align-btn${
+                alignmentMode === "calendar"
+                  ? " seelevel-align-btn--active"
+                  : ""
               }`}
               onClick={() => {
                 onAlignmentMode("calendar");
@@ -114,7 +116,7 @@ export function WindowPicker({
           {windowSize === "monthly"
             ? (
               <div>
-                <div class="vpa-label" style={{ marginBottom: "4px" }}>
+                <div class="seelevel-label" style={{ marginBottom: "4px" }}>
                   Day of month
                 </div>
                 <input
@@ -140,7 +142,7 @@ export function WindowPicker({
             )
             : (
               <div>
-                <div class="vpa-label" style={{ marginBottom: "4px" }}>
+                <div class="seelevel-label" style={{ marginBottom: "4px" }}>
                   Start of week
                 </div>
                 <div style={{ display: "flex", gap: "2px" }}>

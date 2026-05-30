@@ -43,24 +43,24 @@ let promptActive = false;
 let buttonState: "idle" | "drawing" | "active" = "idle";
 
 function injectStyles(): void {
-  if (document.getElementById("vpa-leaflet-css")) return;
+  if (document.getElementById("seelevel-leaflet-css")) return;
   const style = document.createElement("style");
-  style.id = "vpa-leaflet-css";
+  style.id = "seelevel-leaflet-css";
   style.textContent = leafletCss + "\n" + geomanCss +
-    "\n#vpa-leaflet-overlay.leaflet-container { background: transparent !important; }" +
+    "\n#seelevel-leaflet-overlay.leaflet-container { background: transparent !important; }" +
     // Leaflet's own rule `.leaflet-pane > svg path.leaflet-interactive` forces
     // pointer-events:auto back onto the polygon path, overriding the pane. Kill
     // it: the polygon must NEVER capture events so pan/zoom passes through to
     // Google Maps. Geoman's vertex handles are div markers in markerPane (not
     // paths), so polygon editing is unaffected.
-    "\n#vpa-leaflet-overlay .leaflet-overlay-pane svg path" +
+    "\n#seelevel-leaflet-overlay .leaflet-overlay-pane svg path" +
     " { pointer-events: none !important; cursor: inherit !important; }" +
     // Attention pulse for the draw button when a zone is expected but missing.
-    "\n@keyframes vpa-zone-pulse {" +
+    "\n@keyframes seelevel-zone-pulse {" +
     " 0%,100% { box-shadow: 0 1px 5px rgba(0,0,0,.15); }" +
     " 50% { box-shadow: 0 0 0 5px rgba(255,194,102,.6), 0 1px 6px rgba(0,0,0,.25); } }" +
-    "\n#vpa-draw-wrap .vpa-draw-btn--prompt {" +
-    " animation: vpa-zone-pulse 1.2s ease-in-out infinite;" +
+    "\n#seelevel-draw-wrap .seelevel-draw-btn--prompt {" +
+    " animation: seelevel-zone-pulse 1.2s ease-in-out infinite;" +
     " border-color: #ffc266 !important; }";
   document.head.appendChild(style);
 }
@@ -92,7 +92,7 @@ export function clearZone(): void {
 // (idle state) - never mid-draw or while a zone is already drawn.
 function refreshPrompt(): void {
   drawBtn?.classList.toggle(
-    "vpa-draw-btn--prompt",
+    "seelevel-draw-btn--prompt",
     promptActive && buttonState === "idle",
   );
 }
@@ -102,15 +102,15 @@ function setButtonState(state: "idle" | "drawing" | "active"): void {
   if (!drawBtn || !clearBtn) return;
   if (state === "idle") {
     drawBtn.textContent = "⬡ Draw Zone";
-    drawBtn.className = "vpa-draw-btn";
+    drawBtn.className = "seelevel-draw-btn";
     clearBtn.style.display = "none";
   } else if (state === "drawing") {
     drawBtn.textContent = "✕ Cancel";
-    drawBtn.className = "vpa-draw-btn vpa-draw-btn--drawing";
+    drawBtn.className = "seelevel-draw-btn seelevel-draw-btn--drawing";
     clearBtn.style.display = "none";
   } else {
     drawBtn.textContent = "⬡ Redraw";
-    drawBtn.className = "vpa-draw-btn vpa-draw-btn--active";
+    drawBtn.className = "seelevel-draw-btn seelevel-draw-btn--active";
     clearBtn.style.display = "block";
   }
   refreshPrompt();
@@ -124,14 +124,14 @@ export function setDrawPrompt(active: boolean): void {
 
 function buildButtons(container: HTMLElement): void {
   const wrap = document.createElement("div");
-  wrap.id = "vpa-draw-wrap";
+  wrap.id = "seelevel-draw-wrap";
   // Bottom-right, just above Google's Layers + Street View controls, and
   // right-aligned with them (their right edge sits ~4px off the map edge).
   wrap.style.cssText =
     "position:absolute;right:4px;bottom:125px;z-index:2;display:flex;gap:4px;";
 
   drawBtn = document.createElement("button");
-  drawBtn.className = "vpa-draw-btn";
+  drawBtn.className = "seelevel-draw-btn";
   drawBtn.textContent = "⬡ Draw Zone";
   drawBtn.style.cssText =
     "background:#fff;border:1.5px solid rgba(0,0,0,.18);border-radius:6px;padding:5px 9px;" +
@@ -203,7 +203,7 @@ function overMap(e: MouseEvent): boolean {
   const t = e.target as Element | null;
   if (
     t && typeof t.closest === "function" &&
-    t.closest("#vpa-draw-wrap, .gmnoprint, .gm-style-cc")
+    t.closest("#seelevel-draw-wrap, .gmnoprint, .gm-style-cc")
   ) return false;
   const r = overlayEl.getBoundingClientRect();
   return e.clientX >= r.left && e.clientX <= r.right &&
@@ -312,9 +312,7 @@ function redrawDraft(cursor?: L.LatLng): void {
   }
 
   if (drawBtn) {
-    drawBtn.textContent = draftPts.length >= 3
-      ? "✓ Finish"
-      : "✕ Cancel";
+    drawBtn.textContent = draftPts.length >= 3 ? "✓ Finish" : "✕ Cancel";
   }
 }
 
@@ -349,7 +347,7 @@ function initLeafletOverlay(mapContainer: HTMLElement): void {
   injectStyles();
 
   const overlayDiv = document.createElement("div");
-  overlayDiv.id = "vpa-leaflet-overlay";
+  overlayDiv.id = "seelevel-leaflet-overlay";
   // z-index:1 - the lowest value that still paints above Google's `.gm-style`
   // stacking context (z-index:0). pointer-events:none is permanent: the overlay
   // never captures, so pan/zoom always reach Google Maps - including mid-draw,

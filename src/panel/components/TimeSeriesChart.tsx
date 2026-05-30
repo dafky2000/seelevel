@@ -11,22 +11,25 @@ import { formatLocalDate, formatMetricValue } from "../lib/format.ts";
 // uPlot relies on its own stylesheet to overlay the cursor layer above the
 // canvas - without it the hover cursor never registers. Inject it once.
 function ensureUplotCss(): void {
-  if (document.getElementById("vpa-uplot-css")) return;
+  if (document.getElementById("seelevel-uplot-css")) return;
   const style = document.createElement("style");
-  style.id = "vpa-uplot-css";
+  style.id = "seelevel-uplot-css";
   style.textContent = uplotCss as string;
   document.head.appendChild(style);
 }
 
 // Floating tooltip: on hover, shows the hovered bucket's date range and each
 // series' value (one row per series - two for the List/Sold metrics).
-function tooltipPlugin(series: SeriesSummary[], metric: MetricKey): uPlot.Plugin {
+function tooltipPlugin(
+  series: SeriesSummary[],
+  metric: MetricKey,
+): uPlot.Plugin {
   let tip: HTMLDivElement | null = null;
   return {
     hooks: {
       init: (u: uPlot) => {
         tip = document.createElement("div");
-        tip.className = "vpa-chart-tip";
+        tip.className = "seelevel-chart-tip";
         tip.style.display = "none";
         u.over.appendChild(tip);
       },
@@ -42,24 +45,31 @@ function tooltipPlugin(series: SeriesSummary[], metric: MetricKey): uPlot.Plugin
           const b = s.buckets[idx];
           const v = metric === "volume" ? (b?.count ?? null) : (b?.avg ?? null);
           const color = SERIES_COLORS[i % SERIES_COLORS.length];
-          return `<div class="vpa-chart-tip__row">` +
-            `<span class="vpa-chart-tip__dot" style="background:${color}"></span>` +
-            `${s.label}&nbsp;<strong>${formatMetricValue(v, metric)}</strong></div>`;
+          return `<div class="seelevel-chart-tip__row">` +
+            `<span class="seelevel-chart-tip__dot" style="background:${color}"></span>` +
+            `${s.label}&nbsp;<strong>${
+              formatMetricValue(v, metric)
+            }</strong></div>`;
         }).join("");
-        tip.innerHTML = `<div class="vpa-chart-tip__date">${base.bucket.label}</div>${rows}`;
+        tip.innerHTML =
+          `<div class="seelevel-chart-tip__date">${base.bucket.label}</div>${rows}`;
         tip.style.display = "block";
         // Anchor to whichever side of the cursor keeps it inside the chart.
         const x = u.cursor.left ?? 0;
         const rightHalf = x > u.over.clientWidth / 2;
         tip.style.left = rightHalf ? "auto" : `${x + 12}px`;
-        tip.style.right = rightHalf ? `${u.over.clientWidth - x + 12}px` : "auto";
+        tip.style.right = rightHalf
+          ? `${u.over.clientWidth - x + 12}px`
+          : "auto";
       },
     },
   };
 }
 
 export function TimeSeriesChart({
-  summary, metric, windowSize: _windowSize,
+  summary,
+  metric,
+  windowSize: _windowSize,
 }: { summary: AggregateSummary; metric: MetricKey; windowSize: WindowSize }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
@@ -93,7 +103,10 @@ export function TimeSeriesChart({
       // Sync the hover cursor across every metric chart - they all share the
       // same buckets, so hovering one shows that bucket's tooltip on all of
       // them. Only the x axis is synced; each chart keeps its own y scale.
-      cursor: { show: true, sync: { key: "vpa-metric-charts", scales: ["x", null] } },
+      cursor: {
+        show: true,
+        sync: { key: "seelevel-metric-charts", scales: ["x", null] },
+      },
       legend: { show: false },
       axes: [baseAxis, yAxis],
       plugins: [tooltipPlugin(series, metric)],
@@ -110,8 +123,15 @@ export function TimeSeriesChart({
     };
 
     if (chartRef.current) chartRef.current.destroy();
-    chartRef.current = new uPlot(opts, [xs, ...ys] as uPlot.AlignedData, containerRef.current);
-    return () => { chartRef.current?.destroy(); chartRef.current = null; };
+    chartRef.current = new uPlot(
+      opts,
+      [xs, ...ys] as uPlot.AlignedData,
+      containerRef.current,
+    );
+    return () => {
+      chartRef.current?.destroy();
+      chartRef.current = null;
+    };
   }, [summary, metric]);
 
   // Keep the chart width matched to its container. When the panel's vertical
@@ -123,7 +143,9 @@ export function TimeSeriesChart({
     const ro = new ResizeObserver(() => {
       const c = chartRef.current;
       const w = el.clientWidth;
-      if (c && w > 0 && w !== c.width) c.setSize({ width: w, height: c.height });
+      if (c && w > 0 && w !== c.width) {
+        c.setSize({ width: w, height: c.height });
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -138,17 +160,52 @@ export function TimeSeriesChart({
     : "";
 
   return (
-    <div style={{ padding: "8px 14px 0", display: "flex", flexDirection: "column", gap: "4px" }}>
-      <div style={{ fontSize: "9px", color: "var(--color-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", gap: "9px" }}>
+    <div
+      style={{
+        padding: "8px 14px 0",
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "9px",
+          color: "var(--color-muted)",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+          display: "flex",
+          gap: "9px",
+        }}
+      >
         {summary.series.map((s, i) => (
-          <span key={s.label} style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-            <span style={{ width: "7px", height: "7px", borderRadius: "2px", background: SERIES_COLORS[i % SERIES_COLORS.length] }} />
+          <span
+            key={s.label}
+            style={{ display: "flex", alignItems: "center", gap: "3px" }}
+          >
+            <span
+              style={{
+                width: "7px",
+                height: "7px",
+                borderRadius: "2px",
+                background: SERIES_COLORS[i % SERIES_COLORS.length],
+              }}
+            />
             {s.label}
           </span>
         ))}
       </div>
       <div ref={containerRef} style={{ width: "100%", marginTop: "2px" }} />
-      <div style={{ fontSize: "9px", color: "var(--color-subtle)", fontWeight: 600, letterSpacing: "0.3px", textAlign: "center" }}>
+      <div
+        style={{
+          fontSize: "9px",
+          color: "var(--color-subtle)",
+          fontWeight: 600,
+          letterSpacing: "0.3px",
+          textAlign: "center",
+        }}
+      >
         {chartRange}
       </div>
     </div>

@@ -15,7 +15,9 @@ function formatValue(v: number | null, metric: MetricKey): string {
   return v.toFixed(2);
 }
 
-export function ExportButton({ sections }: { sections: ExportSection[] | null }) {
+export function ExportButton(
+  { sections }: { sections: ExportSection[] | null },
+) {
   const ready = !!sections && sections.length > 0;
 
   function download() {
@@ -28,7 +30,9 @@ export function ExportButton({ sections }: { sections: ExportSection[] | null })
     for (const sec of sections) {
       for (const s of sec.summary.series) {
         // metric prefix always; series infix only when a metric has 2 series.
-        const infix = sec.summary.series.length > 1 ? `${s.label.toLowerCase()}_` : "";
+        const infix = sec.summary.series.length > 1
+          ? `${s.label.toLowerCase()}_`
+          : "";
         const p = `${sec.metric.toLowerCase()}_${infix}`;
         header.push(`${p}count`, `${p}avg`, `${p}median`, `${p}std_dev`);
       }
@@ -42,7 +46,10 @@ export function ExportButton({ sections }: { sections: ExportSection[] | null })
 
     for (let i = 0; i < buckets.length; i++) {
       const bucket = buckets[i].bucket;
-      const cells = [formatLocalDate(bucket.start), formatLocalDate(bucket.end)];
+      const cells = [
+        formatLocalDate(bucket.start),
+        formatLocalDate(bucket.end),
+      ];
       for (const sec of sections) {
         for (const s of sec.summary.series) {
           const b = s.buckets[i];
@@ -69,7 +76,7 @@ export function ExportButton({ sections }: { sections: ExportSection[] | null })
 
   return (
     <button
-      class="vpa-btn vpa-btn--icon"
+      class="seelevel-btn seelevel-btn--icon"
       onClick={download}
       disabled={!ready}
       title="Export all statistics (CSV)"

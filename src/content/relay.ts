@@ -12,6 +12,7 @@ import type {
   RelayDown,
   RelayUp,
 } from "../types.ts";
+import { EVT } from "../types.ts";
 import {
   clearZone,
   getCurrentPolygon,
@@ -118,9 +119,9 @@ function clearAndReEmit(): void {
   pollNewTodayCache();
 }
 
-// boundsinfo XHR and Google Maps events both fire vpa:bbox.
+// boundsinfo XHR and Google Maps events both fire seelevel:bbox.
 // The Google Maps hook also includes center_lat/center_lng/zoom for setView() precision.
-document.addEventListener("vpa:bbox", (e) => {
+document.addEventListener(EVT.bbox, (e) => {
   const d = (e as CustomEvent<
     BBox & {
       center_lat?: number;
@@ -150,7 +151,7 @@ document.addEventListener("vpa:bbox", (e) => {
   }
 });
 
-document.addEventListener("vpa:mapbusy", () => setOverlayVisible(false));
+document.addEventListener(EVT.mapbusy, () => setOverlayVisible(false));
 
 function upsertSession(
   listings: ListingRow[],
@@ -166,7 +167,7 @@ function upsertSession(
   for (const p of properties) sessionProperties.set(p.pid, p);
 }
 
-document.addEventListener("vpa:listings", (e) => {
+document.addEventListener(EVT.listings, (e) => {
   const { body, url } = (e as CustomEvent<{ body: string; url: string }>)
     .detail;
   const parsed = parseInterceptedResponse(body, url);
@@ -214,7 +215,10 @@ document.addEventListener("click", (e) => {
 
 document.addEventListener("submit", (e) => {
   const t = e.target as Element | null;
-  if (t && typeof t.closest === "function" && t.closest("form.property-search-form")) {
+  if (
+    t && typeof t.closest === "function" &&
+    t.closest("form.property-search-form")
+  ) {
     clearSession();
   }
 }, true);

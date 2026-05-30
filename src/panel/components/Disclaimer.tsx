@@ -12,7 +12,7 @@ export function Disclaimer() {
     `${gitHubUrl}/issues/new?labels=bug&template=bug_report.md&body=%0A%0A**Extension+version:**+${version}`;
 
   return (
-    <div class="vpa-disclaimer">
+    <div class="seelevel-disclaimer">
       The SeeLevel extension is for personal use only. This extension processes
       data your browser receives from ViewPoint.ca and does not store, transmit,
       or redistribute listing or telemetry data. Data Source: ViewPoint Realty,

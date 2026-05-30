@@ -3,6 +3,8 @@
 
 // deno-lint-ignore-file no-explicit-any
 
+import { EVT } from "../types.ts";
+
 type AnyFn = (...args: any[]) => any;
 
 // Only the endpoints that return a *complete* result set. newtoday is omitted
@@ -17,7 +19,7 @@ const LISTING_PATHS = [
 // We hook every google.maps.Map instance to keep the Leaflet geofence overlay
 // aligned with it:
 //   • Pan  - bounds_changed + rAF while the user is dragging.
-//   • Zoom - emit vpa:mapbusy on zoom start (overlay hides), re-sync on idle.
+//   • Zoom - emit seelevel:mapbusy on zoom start (overlay hides), re-sync on idle.
 //
 // To obtain the Map object we patch the google.maps.Map constructor - the only
 // reliable way, since Google leaves no usable Map back-reference in the DOM.
@@ -30,7 +32,7 @@ const LISTING_PATHS = [
 
   let currentMap: AnyObj | null = null;
 
-  // ── Emit current bounds as vpa:bbox ──────────────────────────────────────
+  // ── Emit current bounds as seelevel:bbox ─────────────────────────────────
   // `settled` = the map has come to rest (idle / initial) vs a mid-drag frame.
   function emitBbox(m: AnyObj, settled: boolean): void {
     const b = m.getBounds?.();
@@ -38,27 +40,37 @@ const LISTING_PATHS = [
     const sw = b.getSouthWest(), ne = b.getNorthEast();
     const c = m.getCenter?.();
     const z = m.getZoom?.();
-    document.dispatchEvent(new CustomEvent("vpa:bbox", {
-      detail: {
-        sw_lat: sw.lat(), sw_lng: sw.lng(),
-        ne_lat: ne.lat(), ne_lng: ne.lng(),
-        settled,
-        ...(c && z !== undefined ? { center_lat: c.lat(), center_lng: c.lng(), zoom: z } : {}),
-      },
-    }));
+    document.dispatchEvent(
+      new CustomEvent(EVT.bbox, {
+        detail: {
+          sw_lat: sw.lat(),
+          sw_lng: sw.lng(),
+          ne_lat: ne.lat(),
+          ne_lng: ne.lng(),
+          settled,
+          ...(c && z !== undefined
+            ? { center_lat: c.lat(), center_lng: c.lng(), zoom: z }
+            : {}),
+        },
+      }),
+    );
   }
 
   // ── Attach sync listeners to a Maps instance ─────────────────────────────
   function hookInstance(m: AnyObj): void {
-    if (!m || m.__vpa_hooked) return;
-    m.__vpa_hooked = true;
+    if (!m || m.__seelevel_hooked) return;
+    m.__seelevel_hooked = true;
     currentMap = m;
 
     let dragging = false;
     let raf = 0;
 
-    m.addListener?.("dragstart", () => { dragging = true; });
-    m.addListener?.("dragend", () => { dragging = false; });
+    m.addListener?.("dragstart", () => {
+      dragging = true;
+    });
+    m.addListener?.("dragend", () => {
+      dragging = false;
+    });
 
     // Live pan sync - only while the user is dragging the map.
     m.addListener?.("bounds_changed", () => {
@@ -69,7 +81,7 @@ const LISTING_PATHS = [
 
     // A zoom is starting - tell the overlay to hide until the map settles.
     m.addListener?.("zoom_changed", () => {
-      document.dispatchEvent(new CustomEvent("vpa:mapbusy"));
+      document.dispatchEvent(new CustomEvent(EVT.mapbusy));
     });
 
     // Authoritative sync - fires after every pan/zoom completes (and on load).
@@ -82,16 +94,22 @@ const LISTING_PATHS = [
   function patchMapConstructor(): void {
     const maps: AnyObj = (window as any).google?.maps;
     const Original: AnyObj = maps?.Map;
-    if (typeof Original !== "function" || (Original as AnyObj).__vpa) return;
+    if (typeof Original !== "function" || (Original as AnyObj).__seelevel) {
+      return;
+    }
     function Patched(this: AnyObj, ...args: any[]) {
       const inst = new (Original as any)(...args);
-      try { hookInstance(inst); } catch { /* ignore */ }
+      try {
+        hookInstance(inst);
+      } catch { /* ignore */ }
       return inst;
     }
-    Patched.prototype = Original.prototype;        // instanceof + methods
-    Object.setPrototypeOf(Patched, Original);      // forward static members
-    (Patched as AnyObj).__vpa = true;
-    try { maps.Map = Patched; } catch { /* read-only - discovery fallback */ }
+    Patched.prototype = Original.prototype; // instanceof + methods
+    Object.setPrototypeOf(Patched, Original); // forward static members
+    (Patched as AnyObj).__seelevel = true;
+    try {
+      maps.Map = Patched;
+    } catch { /* read-only - discovery fallback */ }
   }
 
   // Catch the window.google assignment so we can patch Map the instant the
@@ -101,12 +119,16 @@ const LISTING_PATHS = [
       let _g: AnyObj | undefined;
       Object.defineProperty(window, "google", {
         configurable: true,
-        get() { return _g; },
+        get() {
+          return _g;
+        },
         set(v: AnyObj) {
           _g = v;
           try {
             Object.defineProperty(window, "google", {
-              value: v, writable: true, configurable: true,
+              value: v,
+              writable: true,
+              configurable: true,
             });
           } catch { /* ignore */ }
           patchMapConstructor();
@@ -120,7 +142,7 @@ const LISTING_PATHS = [
   let fastTries = 0;
   function fastPatchPoll(): void {
     patchMapConstructor();
-    const patched = !!((window as any).google?.maps?.Map as AnyObj)?.__vpa;
+    const patched = !!((window as any).google?.maps?.Map as AnyObj)?.__seelevel;
     if (!patched && ++fastTries < 600) requestAnimationFrame(fastPatchPoll);
   }
   fastPatchPoll();
@@ -164,9 +186,9 @@ const LISTING_PATHS = [
   // ── Continuous poll: keep the constructor patched and recover a lost map ──
   let elapsed = 0;
   function tick(): void {
-    patchMapConstructor();           // idempotent - covers late namespace setup
+    patchMapConstructor(); // idempotent - covers late namespace setup
     if (isAlive(currentMap)) return; // healthy - nothing to do
-    currentMap = null;               // lost it, or never had one
+    currentMap = null; // lost it, or never had one
     const m = discover();
     if (m) hookInstance(m);
   }
@@ -178,7 +200,7 @@ const LISTING_PATHS = [
       schedule();
     }, interval);
   }
-  tick();     // immediate first attempt
+  tick(); // immediate first attempt
   schedule(); // then keep polling
 })();
 
@@ -201,8 +223,14 @@ const urlByXhr = new WeakMap<XMLHttpRequest, string>();
 
 function maskAsNative(patched: AnyFn, original: AnyFn): void {
   try {
-    Object.defineProperty(patched, "name", { value: original.name, configurable: true });
-    Object.defineProperty(patched, "length", { value: original.length, configurable: true });
+    Object.defineProperty(patched, "name", {
+      value: original.name,
+      configurable: true,
+    });
+    Object.defineProperty(patched, "length", {
+      value: original.length,
+      configurable: true,
+    });
     Object.defineProperty(patched, "toString", {
       value: original.toString.bind(original),
       writable: true,
@@ -237,7 +265,9 @@ function processResponse(xhr: XMLHttpRequest, url: string): void {
     const body = readBody(xhr);
     if (body === null) return;
     // Listing endpoints only - the map bbox comes from the Google Maps hook.
-    document.dispatchEvent(new CustomEvent("vpa:listings", { detail: { body, url } }));
+    document.dispatchEvent(
+      new CustomEvent(EVT.listings, { detail: { body, url } }),
+    );
   } catch { /* observation failure - never affects the page */ }
 }
 
