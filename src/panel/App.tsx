@@ -2,11 +2,11 @@
 import { h, render } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type {
-  BBox,
   MetricKey,
   PanelDown,
   PanelToContent,
   PanelUp,
+  RegionRecord,
   TabStore,
 } from "../types.ts";
 import {
@@ -17,7 +17,7 @@ import {
 } from "./store.ts";
 import { availableWindowSizes, buildBuckets } from "./lib/bucket.ts";
 import { aggregate } from "./lib/aggregate.ts";
-import { computeCoverage } from "./lib/coverage.ts";
+import { computeZoneCoverage } from "./lib/coverage.ts";
 import { EulaGate } from "./components/EulaGate.tsx";
 import { ScopeSelector } from "./components/ScopeSelector.tsx";
 import { WindowPicker } from "./components/WindowPicker.tsx";
@@ -27,6 +27,7 @@ import { PriceHistogramChart } from "./components/PriceHistogramChart.tsx";
 import { priceHistogram } from "./lib/histogram.ts";
 import type { PriceHistogram } from "./lib/histogram.ts";
 import { ZoneCoverage } from "./components/ZoneCoverage.tsx";
+import { ZonePanel } from "./components/ZonePanel.tsx";
 import { ExportButton } from "./components/ExportButton.tsx";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { Disclaimer } from "./components/Disclaimer.tsx";
@@ -53,17 +54,13 @@ interface MetricSection {
   summary: AggregateSummary;
 }
 
-// Bounding box of a polygon — used to drive the target map far enough to cover
-// a synced zone before applying it.
-function polygonBbox(poly: [number, number][]): BBox {
-  const lats = poly.map((p) => p[0]);
-  const lngs = poly.map((p) => p[1]);
-  return {
-    sw_lat: Math.min(...lats),
-    sw_lng: Math.min(...lngs),
-    ne_lat: Math.max(...lats),
-    ne_lng: Math.max(...lngs),
-  };
+// Outer ring of a single-part, hole-less zone (a custom draw) — used only to
+// keep the dev parity snapshot's single-ring `polygon` field populated.
+function zoneOuterRing(zone: TabStore["zone"]): [number, number][] | null {
+  if (zone && zone.length === 1 && zone[0].holes.length === 0) {
+    return zone[0].outer;
+  }
+  return null;
 }
 
 // Build a ParitySnapshot for one tab's store — mirrors the panel's own
@@ -92,7 +89,7 @@ function buildSnapshot(store: TabStore): ParitySnapshot {
     windowSize: store.windowSize,
     loading: store.loading,
     bbox: store.viewportBbox,
-    polygon: store.polygon,
+    polygon: zoneOuterRing(store.zone),
     figures: buildFigures(visible, buckets, side),
   };
 }
@@ -212,13 +209,17 @@ function App() {
       }
 
       if (payload.type === "zone") {
-        // Switch to zone scope only when a zone first appears - not on every
-        // re-send (the relay re-sends the polygon on each listings update,
-        // which would otherwise yank the user back to "zone" while panning).
-        const isNewZone = !!payload.polygon && !s.polygon;
-        s.polygon = payload.polygon;
+        // Keep the active zone in sync with the overlay (custom-draw edits and
+        // region renders both arrive here). Adopt zone scope when a zone first
+        // appears; scope is otherwise driven explicitly by the ScopeSelector and
+        // the ZonePanel reset/clear actions, so a null re-send never changes it.
+        const isNewZone = !!payload.shape && !s.zone;
+        s.zone = payload.shape;
         if (isNewZone) s.scope = "zone";
-        else if (!payload.polygon && s.scope === "zone") s.scope = "session";
+      }
+
+      if (payload.type === "draw_state") {
+        s.drawing = payload.drawing;
       }
 
       if (payload.type === "oversize_bbox") {
@@ -327,17 +328,24 @@ function App() {
           });
           result.bbox = fromStore.viewportBbox;
         }
-        if ((what === "zone" || what === "both") && fromStore.polygon) {
-          // Drive the target far enough to cover the zone, then apply the zone.
+        if ((what === "zone" || what === "both") && fromStore.zone) {
+          const ring = zoneOuterRing(fromStore.zone);
           postToRelay(toStore.tabId, {
             type: "drive_viewport",
-            bbox: polygonBbox(fromStore.polygon),
+            bbox: ring
+              ? {
+                sw_lat: Math.min(...ring.map((p) => p[0])),
+                sw_lng: Math.min(...ring.map((p) => p[1])),
+                ne_lat: Math.max(...ring.map((p) => p[0])),
+                ne_lng: Math.max(...ring.map((p) => p[1])),
+              }
+              : fromStore.viewportBbox!,
           });
           postToRelay(toStore.tabId, {
-            type: "drive_zone",
-            polygon: fromStore.polygon,
+            type: "show_zone",
+            shape: fromStore.zone,
           });
-          result.polygon = fromStore.polygon;
+          result.zone = fromStore.zone;
         }
         return result;
       };
@@ -426,26 +434,19 @@ function App() {
     setStore(updated);
   }, [store, activeTabId]);
 
-  // Pulse the map's draw-zone button while the Zone tab is open with no zone.
-  useEffect(() => {
-    if (activeTabId === null || !store) return;
-    const active = store.scope === "zone" && !store.polygon;
-    postToRelay(activeTabId, { type: "zone_prompt", active });
-  }, [activeTabId, store?.scope, store?.polygon, postToRelay]);
-
   if (!eulaAcknowledged) {
     return <EulaGate onAcknowledge={() => setEulaAcknowledged(true)} />;
   }
 
-  const coverage = store?.polygon && store.fetchedBboxes.length > 0
-    ? computeCoverage(store.fetchedBboxes, store.polygon)
+  const coverage = store?.zone && store.fetchedBboxes.length > 0
+    ? computeZoneCoverage(store.fetchedBboxes, store.zone)
     : null;
 
   const listingCount = store ? scopedListings(store).length : 0;
   const isYearly = store?.windowSize === "yearly";
   // Zone tab selected but nothing drawn - prompt the user instead of falling
   // back to session data.
-  const zoneNoPolygon = !!store && store.scope === "zone" && !store.polygon;
+  const zoneNoPolygon = !!store && store.scope === "zone" && !store.zone;
   const viewportOversize = !!store?.oversizeBbox && store.scope === "viewport";
   const sessionOrZoneOversize = !!store?.oversizeBbox &&
     (store.scope === "session" || store.scope === "zone");
@@ -502,6 +503,50 @@ function App() {
               scope={store.scope}
               onScope={(scope) => updateStore({ scope })}
             />
+            {store.scope === "zone" && (
+              <ZonePanel
+                selectedRegionId={store.selectedRegionId}
+                drawing={store.drawing}
+                hasZone={!!store.zone}
+                onSelectRegion={(region: RegionRecord) => {
+                  updateStore({
+                    zone: region.shape,
+                    selectedRegionId: region.id,
+                    scope: "zone",
+                  });
+                  if (activeTabId !== null) {
+                    postToRelay(activeTabId, {
+                      type: "drive_viewport",
+                      bbox: region.bbox,
+                    });
+                    postToRelay(activeTabId, {
+                      type: "show_zone",
+                      shape: region.shape,
+                    });
+                  }
+                }}
+                onToggleDraw={() => {
+                  if (activeTabId === null) return;
+                  if (store.drawing) {
+                    postToRelay(activeTabId, { type: "cancel_draw" });
+                  } else {
+                    updateStore({ selectedRegionId: null });
+                    postToRelay(activeTabId, { type: "begin_draw" });
+                  }
+                }}
+                onReset={() => {
+                  updateStore({
+                    zone: null,
+                    selectedRegionId: null,
+                    drawing: false,
+                    scope: "viewport",
+                  });
+                  if (activeTabId !== null) {
+                    postToRelay(activeTabId, { type: "clear_zone" });
+                  }
+                }}
+              />
+            )}
             {store.scope === "zone" && coverage !== null && (
               <ZoneCoverage coverage={coverage} count={listingCount} />
             )}
@@ -518,10 +563,8 @@ function App() {
           <div class="seelevel-empty">
             <div class="seelevel-empty__icon">⬡</div>
             <div class="seelevel-empty__text">
-              No zone drawn yet.<br />
-              Use the pulsing <strong>⬡ Draw Zone</strong>{" "}
-              button on the map to draw an area - results are then filtered to
-              listings inside it.
+              No zone yet. Pick a region above, or draw a custom zone — results
+              are then filtered to listings inside it.
             </div>
           </div>
         )
@@ -594,7 +637,9 @@ function App() {
                     viewportListings: null,
                     fetchedBboxes: [],
                     viewportBbox: null,
-                    polygon: null,
+                    zone: null,
+                    selectedRegionId: null,
+                    drawing: false,
                     scope: "viewport",
                   });
                   if (activeTabId !== null) {

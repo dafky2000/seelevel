@@ -93,8 +93,10 @@ refresh arrow on the SeeLevel card in `chrome://extensions`.
 - **🌐 Two sites, one panel.** `viewpoint.ca/map` and
   `engelvoelkersnovascotia.com/map` share the same panel, scopes, charts, and
   zone tool.
-- **🗺️ Draw a zone.** Polygon on top of the site's Google Maps view (Leaflet +
-  Geoman). Filter every stat to the shape.
+- **🗺️ Zone filtering.** The Zone tab lets you select any Nova Scotia town,
+  district, county, or regional municipality from a grouped dropdown — SeeLevel
+  pans the map there and applies the boundary as the active filter. Or draw a
+  custom polygon on the map. Either way, every metric filters to the shape.
 - **📊 Real charts.** uPlot time-series with monthly buckets, hover tooltip,
   configurable date windows, split Active / Sold series.
 - **📊 Price distribution.** A histogram of how many listings sit in each price
@@ -121,6 +123,19 @@ deno run -A build.ts --package   # production + zip → seelevel-X.Y.Z.zip
 `--package` produces the exact zip that gets uploaded to the Chrome Web Store
 (Google signs it on upload - there is no local `.crx` and no signing key to
 manage).
+
+The committed `src/panel/data/ns-municipalities.json` means normal, `--prod`,
+and `--package` builds are offline and need no secrets. To regenerate the
+boundary data (49 NS municipalities from the provincial open-data portal):
+
+```bash
+# Requires SOCRATA_API_KEY and SOCRATA_API_SECRET in a .env file.
+deno run -A build.ts --refresh-boundaries
+```
+
+This re-fetches Socrata view `7bqh-hssn`, RDP-simplifies the geometries via
+`scripts/boundaries/`, and overwrites `src/panel/data/ns-municipalities.json`.
+Commit the result if the upstream data has changed.
 
 Tests live under `src/panel/lib/__tests__/` and run with `deno test -A src/`.
 

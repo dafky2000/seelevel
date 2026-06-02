@@ -1,40 +1,70 @@
 # Cross-site Parity Harness Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or
+> superpowers:executing-plans to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a `__DEV__`-gated harness that captures EV and ViewPoint aggregate figures for the same viewport/zone + filter, drives the two maps into alignment at a single hook call, and reports per-figure deltas — with the entire harness stripped from the packaged (`--prod`) build.
+**Goal:** Build a `__DEV__`-gated harness that captures EV and ViewPoint
+aggregate figures for the same viewport/zone + filter, drives the two maps into
+alignment at a single hook call, and reports per-figure deltas — with the entire
+harness stripped from the packaged (`--prod`) build.
 
-**Architecture:** A pure, unit-tested core (`src/panel/lib/parity.ts`: `buildFigures` + `compareAggregates`) does all the math. The side panel — which already holds a `TabStore` per open tab — installs two dev-only `window` hooks (`__seelevelSnapshot`, `__seelevelSync`). `__seelevelSync` sends new dev-only `drive_viewport` / `drive_zone` port messages to the target tab's relay; the relay drives the shared `google.maps` instance via `currentMap.fitBounds` (both sites use the same hook) and renders the synced zone via a new `setZone` on the geofence overlay. Every dev-only path is wrapped so `esbuild`'s `__DEV__ = false` define dead-code-eliminates it under `--prod`.
+**Architecture:** A pure, unit-tested core (`src/panel/lib/parity.ts`:
+`buildFigures` + `compareAggregates`) does all the math. The side panel — which
+already holds a `TabStore` per open tab — installs two dev-only `window` hooks
+(`__seelevelSnapshot`, `__seelevelSync`). `__seelevelSync` sends new dev-only
+`drive_viewport` / `drive_zone` port messages to the target tab's relay; the
+relay drives the shared `google.maps` instance via `currentMap.fitBounds` (both
+sites use the same hook) and renders the synced zone via a new `setZone` on the
+geofence overlay. Every dev-only path is wrapped so `esbuild`'s
+`__DEV__ = false` define dead-code-eliminates it under `--prod`.
 
-**Tech Stack:** Deno + esbuild + Preact; `google.maps`; Leaflet + Geoman (zone overlay); tests use `jsr:@std/assert@1` via `deno test`.
+**Tech Stack:** Deno + esbuild + Preact; `google.maps`; Leaflet + Geoman (zone
+overlay); tests use `jsr:@std/assert@1` via `deno test`.
 
-**Spec:** `docs/superpowers/specs/2026-05-30-cross-site-parity-harness-design.md`
+**Spec:**
+`docs/superpowers/specs/2026-05-30-cross-site-parity-harness-design.md`
 
 ---
 
 ## File Structure
 
-- **Create** `src/panel/lib/parity.ts` — pure core: `ParityFigures`, `ParitySnapshot`, `Tolerance`, `FigureDelta`, `ParityReport`, `buildFigures()`, `compareAggregates()`, `DEFAULT_TOL`.
-- **Create** `src/panel/lib/__tests__/parity.test.ts` — unit tests for the pure core.
-- **Modify** `src/types.ts` — add `drive_viewport` / `drive_zone` to `PanelToContent`; add `drive` to `EVT`.
+- **Create** `src/panel/lib/parity.ts` — pure core: `ParityFigures`,
+  `ParitySnapshot`, `Tolerance`, `FigureDelta`, `ParityReport`,
+  `buildFigures()`, `compareAggregates()`, `DEFAULT_TOL`.
+- **Create** `src/panel/lib/__tests__/parity.test.ts` — unit tests for the pure
+  core.
+- **Modify** `src/types.ts` — add `drive_viewport` / `drive_zone` to
+  `PanelToContent`; add `drive` to `EVT`.
 - **Modify** `build.ts` — add the `__DEV__` esbuild define to every bundle.
-- **Modify** `src/content/shared/google-maps-hook.ts` — dev-gated `seelevel:drive` listener calling `currentMap.fitBounds`.
+- **Modify** `src/content/shared/google-maps-hook.ts` — dev-gated
+  `seelevel:drive` listener calling `currentMap.fitBounds`.
 - **Modify** `src/content/geofence-overlay.ts` — add `setZone(polygon)`.
-- **Modify** `src/content/relay.ts` + `src/content/ev/relay.ts` — dev-gated `drive_viewport` / `drive_zone` handlers.
-- **Modify** `src/panel/App.tsx` — dev-gated install of `__seelevelSnapshot` / `__seelevelSync` + `buildSnapshot` / `polygonBbox` helpers.
+- **Modify** `src/content/relay.ts` + `src/content/ev/relay.ts` — dev-gated
+  `drive_viewport` / `drive_zone` handlers.
+- **Modify** `src/panel/App.tsx` — dev-gated install of `__seelevelSnapshot` /
+  `__seelevelSync` + `buildSnapshot` / `polygonBbox` helpers.
 
-The pure core (`parity.ts`) carries every behaviour that can be tested without Chrome/DOM. The wiring tasks (build define, relays, hook, overlay, App) have no unit tests by project convention (content scripts and Preact components are not unit-tested here) — they are verified by a clean build, the `--prod` strip grep, and the manual DevTools procedure in the spec.
+The pure core (`parity.ts`) carries every behaviour that can be tested without
+Chrome/DOM. The wiring tasks (build define, relays, hook, overlay, App) have no
+unit tests by project convention (content scripts and Preact components are not
+unit-tested here) — they are verified by a clean build, the `--prod` strip grep,
+and the manual DevTools procedure in the spec.
 
 ---
 
 ### Task 1: Add the `__DEV__` build define
 
 **Files:**
-- Modify: `build.ts:75-84` (the `shared` options) and `build.ts:105-113` (the panel build's `define`)
+
+- Modify: `build.ts:75-84` (the `shared` options) and `build.ts:105-113` (the
+  panel build's `define`)
 
 - [ ] **Step 1: Add `__DEV__` to the shared esbuild options**
 
-In `build.ts`, the `shared` object currently ends at the `loader` line. Add a `define` key so every bundle gets `__DEV__`:
+In `build.ts`, the `shared` object currently ends at the `loader` line. Add a
+`define` key so every bundle gets `__DEV__`:
 
 ```ts
 const shared: esbuild.BuildOptions = {
@@ -55,19 +85,22 @@ const shared: esbuild.BuildOptions = {
 
 - [ ] **Step 2: Keep both defines on the panel build**
 
-The panel build spreads `...shared` then sets its own `define`, which would otherwise clobber the shared `__DEV__`. Change its `define` to include both (replace the existing `define: { __EXT_VERSION__: JSON.stringify(version) },` line):
+The panel build spreads `...shared` then sets its own `define`, which would
+otherwise clobber the shared `__DEV__`. Change its `define` to include both
+(replace the existing `define: { __EXT_VERSION__: JSON.stringify(version) },`
+line):
 
 ```ts
-    define: {
-      __DEV__: JSON.stringify(!isProd),
-      __EXT_VERSION__: JSON.stringify(version),
-    },
+define: {
+  __DEV__: JSON.stringify(!isProd),
+  __EXT_VERSION__: JSON.stringify(version),
+},
 ```
 
 - [ ] **Step 3: Verify a dev build still succeeds**
 
-Run: `deno run -A build.ts`
-Expected: prints `Build complete.` with no errors. (`__DEV__` is defined but not yet referenced — harmless.)
+Run: `deno run -A build.ts` Expected: prints `Build complete.` with no errors.
+(`__DEV__` is defined but not yet referenced — harmless.)
 
 - [ ] **Step 4: Commit**
 
@@ -81,6 +114,7 @@ git commit -m "Add __DEV__ esbuild define for the dev-only parity harness"
 ### Task 2: Pure core — `buildFigures`
 
 **Files:**
+
 - Create: `src/panel/lib/parity.ts`
 - Test: `src/panel/lib/__tests__/parity.test.ts`
 
@@ -182,8 +216,9 @@ Deno.test("buildFigures — picks the latest complete bucket", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `deno test -A src/panel/lib/__tests__/parity.test.ts`
-Expected: FAIL — `Module not found` / `buildFigures is not exported` (parity.ts does not exist yet).
+Run: `deno test -A src/panel/lib/__tests__/parity.test.ts` Expected: FAIL —
+`Module not found` / `buildFigures is not exported` (parity.ts does not exist
+yet).
 
 - [ ] **Step 3: Write the minimal implementation**
 
@@ -284,8 +319,8 @@ export function buildFigures(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `deno test -A src/panel/lib/__tests__/parity.test.ts`
-Expected: PASS — 3 tests pass.
+Run: `deno test -A src/panel/lib/__tests__/parity.test.ts` Expected: PASS — 3
+tests pass.
 
 - [ ] **Step 5: Commit**
 
@@ -299,6 +334,7 @@ git commit -m "Add pure buildFigures for the parity harness"
 ### Task 3: Pure core — `compareAggregates`
 
 **Files:**
+
 - Modify: `src/panel/lib/parity.ts`
 - Test: `src/panel/lib/__tests__/parity.test.ts`
 
@@ -344,7 +380,10 @@ function snap(p: Partial<ParitySnapshot> = {}): ParitySnapshot {
 }
 
 Deno.test("compareAggregates — identical snapshots: aligned, all pass", () => {
-  const r = compareAggregates(snap({ host: "viewpoint.ca" }), snap({ host: "ev" }));
+  const r = compareAggregates(
+    snap({ host: "viewpoint.ca" }),
+    snap({ host: "ev" }),
+  );
   assertEquals(r.aligned, true);
   assertEquals(r.deltas.every((d) => d.pass), true);
 });
@@ -393,7 +432,10 @@ Deno.test("compareAggregates — window mismatch breaks alignment", () => {
 });
 
 Deno.test("compareAggregates — zone scope compares polygons for alignment", () => {
-  const poly: [number, number][] = [[44.6, -63.6], [44.7, -63.6], [44.7, -63.5]];
+  const poly: [number, number][] = [[44.6, -63.6], [44.7, -63.6], [
+    44.7,
+    -63.5,
+  ]];
   const a = snap({ scope: "zone", polygon: poly, bbox: null });
   const b = snap({ scope: "zone", polygon: poly, bbox: BBOX });
   const r = compareAggregates(a, b);
@@ -404,8 +446,8 @@ Deno.test("compareAggregates — zone scope compares polygons for alignment", ()
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `deno test -A src/panel/lib/__tests__/parity.test.ts`
-Expected: FAIL — `compareAggregates is not exported` and `ParitySnapshot` type missing.
+Run: `deno test -A src/panel/lib/__tests__/parity.test.ts` Expected: FAIL —
+`compareAggregates is not exported` and `ParitySnapshot` type missing.
 
 - [ ] **Step 3: Write the minimal implementation**
 
@@ -570,8 +612,8 @@ export function compareAggregates(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `deno test -A src/panel/lib/__tests__/parity.test.ts`
-Expected: PASS — all tests (3 from Task 2 + 7 from Task 3) pass.
+Run: `deno test -A src/panel/lib/__tests__/parity.test.ts` Expected: PASS — all
+tests (3 from Task 2 + 7 from Task 3) pass.
 
 - [ ] **Step 5: Commit**
 
@@ -585,11 +627,14 @@ git commit -m "Add pure compareAggregates for the parity harness"
 ### Task 4: Wire types — dev-only port messages + EVT.drive
 
 **Files:**
-- Modify: `src/types.ts:72-74` (`PanelToContent`) and `src/types.ts:150-157` (`EVT`)
+
+- Modify: `src/types.ts:72-74` (`PanelToContent`) and `src/types.ts:150-157`
+  (`EVT`)
 
 - [ ] **Step 1: Add the dev-only `PanelToContent` variants**
 
-Replace the `PanelToContent` union (currently `clear_zone` + `zone_prompt`) with:
+Replace the `PanelToContent` union (currently `clear_zone` + `zone_prompt`)
+with:
 
 ```ts
 export type PanelToContent =
@@ -604,7 +649,8 @@ export type PanelToContent =
 
 - [ ] **Step 2: Add the `drive` event name**
 
-In the `EVT` object, add the `drive` entry (ISOLATED → MAIN, the reverse of `bbox`):
+In the `EVT` object, add the `drive` entry (ISOLATED → MAIN, the reverse of
+`bbox`):
 
 ```ts
 export const EVT = {
@@ -620,8 +666,8 @@ export const EVT = {
 
 - [ ] **Step 3: Verify types still check**
 
-Run: `deno check src/types.ts`
-Expected: no errors. (`BBox` is already defined in this file, so the new variant resolves.)
+Run: `deno check src/types.ts` Expected: no errors. (`BBox` is already defined
+in this file, so the new variant resolves.)
 
 - [ ] **Step 4: Commit**
 
@@ -635,11 +681,15 @@ git commit -m "Add dev-only drive_viewport/drive_zone messages and EVT.drive"
 ### Task 5: Dev-gated map driver in the shared google.maps hook
 
 **Files:**
+
 - Modify: `src/content/shared/google-maps-hook.ts`
 
 - [ ] **Step 1: Import `BBox` and declare `__DEV__`**
 
-At the top of the file, the existing import is `import { EVT } from "../../types.ts";`. Change it to also bring in `BBox`, and add the ambient `__DEV__` declaration (mirrors `Disclaimer.tsx`'s `__EXT_VERSION__` pattern):
+At the top of the file, the existing import is
+`import { EVT } from "../../types.ts";`. Change it to also bring in `BBox`, and
+add the ambient `__DEV__` declaration (mirrors `Disclaimer.tsx`'s
+`__EXT_VERSION__` pattern):
 
 ```ts
 import { EVT } from "../../types.ts";
@@ -648,34 +698,36 @@ import type { BBox } from "../../types.ts";
 declare const __DEV__: boolean;
 ```
 
-- [ ] **Step 2: Register the dev-only drive listener inside `installGoogleMapsHook`**
+- [ ] **Step 2: Register the dev-only drive listener inside
+      `installGoogleMapsHook`**
 
-The listener must close over `currentMap`, so it goes inside `installGoogleMapsHook`. Immediately after the `fastPatchPoll();` call (around line 167, before the `isAlive` helper), add:
+The listener must close over `currentMap`, so it goes inside
+`installGoogleMapsHook`. Immediately after the `fastPatchPoll();` call (around
+line 167, before the `isAlive` helper), add:
 
 ```ts
-  // ── Dev-only: drive the map to a requested bbox (parity harness) ─────────
-  // ISOLATED relay dispatches seelevel:drive; we fitBounds the live instance.
-  // Stripped from --prod (__DEV__ === false → dead code).
-  if (typeof __DEV__ !== "undefined" && __DEV__) {
-    document.addEventListener(EVT.drive, (e) => {
-      const d = (e as CustomEvent<{ bbox: BBox }>).detail;
-      if (!d?.bbox || !currentMap) return;
-      try {
-        currentMap.fitBounds?.({
-          north: d.bbox.ne_lat,
-          south: d.bbox.sw_lat,
-          east: d.bbox.ne_lng,
-          west: d.bbox.sw_lng,
-        });
-      } catch { /* never break the page */ }
-    });
-  }
+// ── Dev-only: drive the map to a requested bbox (parity harness) ─────────
+// ISOLATED relay dispatches seelevel:drive; we fitBounds the live instance.
+// Stripped from --prod (__DEV__ === false → dead code).
+if (typeof __DEV__ !== "undefined" && __DEV__) {
+  document.addEventListener(EVT.drive, (e) => {
+    const d = (e as CustomEvent<{ bbox: BBox }>).detail;
+    if (!d?.bbox || !currentMap) return;
+    try {
+      currentMap.fitBounds?.({
+        north: d.bbox.ne_lat,
+        south: d.bbox.sw_lat,
+        east: d.bbox.ne_lng,
+        west: d.bbox.sw_lng,
+      });
+    } catch { /* never break the page */ }
+  });
+}
 ```
 
 - [ ] **Step 3: Verify a dev build succeeds**
 
-Run: `deno run -A build.ts`
-Expected: `Build complete.` with no errors.
+Run: `deno run -A build.ts` Expected: `Build complete.` with no errors.
 
 - [ ] **Step 4: Commit**
 
@@ -689,11 +741,15 @@ git commit -m "Add dev-gated seelevel:drive map driver to the google.maps hook"
 ### Task 6: `setZone` on the geofence overlay
 
 **Files:**
+
 - Modify: `src/content/geofence-overlay.ts`
 
 - [ ] **Step 1: Add `setZone` next to `getCurrentPolygon`**
 
-After `getCurrentPolygon()` (around line 445), add an exported `setZone` that renders a polygon programmatically and routes it through the existing `onPolygonCreated` (which styles it, enables Geoman editing, and fires `onZoneChange`):
+After `getCurrentPolygon()` (around line 445), add an exported `setZone` that
+renders a polygon programmatically and routes it through the existing
+`onPolygonCreated` (which styles it, enables Geoman editing, and fires
+`onZoneChange`):
 
 ```ts
 // Programmatically render a zone polygon (parity harness drive_zone). Reuses
@@ -716,8 +772,7 @@ export function setZone(polygon: [number, number][]): void {
 
 - [ ] **Step 2: Verify a dev build succeeds**
 
-Run: `deno run -A build.ts`
-Expected: `Build complete.` with no errors.
+Run: `deno run -A build.ts` Expected: `Build complete.` with no errors.
 
 - [ ] **Step 3: Commit**
 
@@ -731,12 +786,17 @@ git commit -m "Add setZone to geofence overlay for programmatic zone sync"
 ### Task 7: Dev-gated drive handlers in both relays
 
 **Files:**
-- Modify: `src/content/relay.ts:16-24` (imports) and `src/content/relay.ts:63-69` (message handler)
-- Modify: `src/content/ev/relay.ts:11-19` (imports) and `src/content/ev/relay.ts:45-51` (message handler)
+
+- Modify: `src/content/relay.ts:16-24` (imports) and
+  `src/content/relay.ts:63-69` (message handler)
+- Modify: `src/content/ev/relay.ts:11-19` (imports) and
+  `src/content/ev/relay.ts:45-51` (message handler)
 
 - [ ] **Step 1: ViewPoint relay — import `setZone` and declare `__DEV__`**
 
-In `src/content/relay.ts`, add `setZone` to the geofence-overlay import list (it currently imports `clearZone, getCurrentPolygon, initGeofenceOverlay, setDrawPrompt, setOnZoneChange, setOverlayVisible, syncMapView`):
+In `src/content/relay.ts`, add `setZone` to the geofence-overlay import list (it
+currently imports
+`clearZone, getCurrentPolygon, initGeofenceOverlay, setDrawPrompt, setOnZoneChange, setOverlayVisible, syncMapView`):
 
 ```ts
 import {
@@ -751,7 +811,8 @@ import {
 } from "./geofence-overlay.ts";
 ```
 
-Then add the ambient declaration just below the import block (e.g. after the `EVT` import line):
+Then add the ambient declaration just below the import block (e.g. after the
+`EVT` import line):
 
 ```ts
 declare const __DEV__: boolean;
@@ -759,31 +820,34 @@ declare const __DEV__: boolean;
 
 - [ ] **Step 2: ViewPoint relay — handle the drive messages**
 
-In `openPort()`, the inbound `msg` handler currently branches on `zone_prompt` and `clear_zone`. Extend it:
+In `openPort()`, the inbound `msg` handler currently branches on `zone_prompt`
+and `clear_zone`. Extend it:
 
 ```ts
-    if (msg.type === "msg") {
-      if (msg.payload.type === "zone_prompt") {
-        setDrawPrompt(msg.payload.active);
-      } else if (msg.payload.type === "clear_zone") {
-        clearZone();
-      } else if (msg.payload.type === "drive_viewport") {
-        if (typeof __DEV__ !== "undefined" && __DEV__) {
-          document.dispatchEvent(
-            new CustomEvent(EVT.drive, { detail: { bbox: msg.payload.bbox } }),
-          );
-        }
-      } else if (msg.payload.type === "drive_zone") {
-        if (typeof __DEV__ !== "undefined" && __DEV__) {
-          setZone(msg.payload.polygon);
-        }
-      }
+if (msg.type === "msg") {
+  if (msg.payload.type === "zone_prompt") {
+    setDrawPrompt(msg.payload.active);
+  } else if (msg.payload.type === "clear_zone") {
+    clearZone();
+  } else if (msg.payload.type === "drive_viewport") {
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      document.dispatchEvent(
+        new CustomEvent(EVT.drive, { detail: { bbox: msg.payload.bbox } }),
+      );
     }
+  } else if (msg.payload.type === "drive_zone") {
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      setZone(msg.payload.polygon);
+    }
+  }
+}
 ```
 
 - [ ] **Step 3: EV relay — same import, declaration, and handler**
 
-In `src/content/ev/relay.ts`, add `setZone` to its geofence-overlay import (currently `clearZone, getCurrentPolygon, initGeofenceOverlay, setDrawPrompt, setOnZoneChange, setOverlayVisible, syncMapView`):
+In `src/content/ev/relay.ts`, add `setZone` to its geofence-overlay import
+(currently
+`clearZone, getCurrentPolygon, initGeofenceOverlay, setDrawPrompt, setOnZoneChange, setOverlayVisible, syncMapView`):
 
 ```ts
 import {
@@ -807,29 +871,28 @@ declare const __DEV__: boolean;
 And extend its inbound `msg` handler identically:
 
 ```ts
-    if (msg.type === "msg") {
-      if (msg.payload.type === "zone_prompt") {
-        setDrawPrompt(msg.payload.active);
-      } else if (msg.payload.type === "clear_zone") {
-        clearZone();
-      } else if (msg.payload.type === "drive_viewport") {
-        if (typeof __DEV__ !== "undefined" && __DEV__) {
-          document.dispatchEvent(
-            new CustomEvent(EVT.drive, { detail: { bbox: msg.payload.bbox } }),
-          );
-        }
-      } else if (msg.payload.type === "drive_zone") {
-        if (typeof __DEV__ !== "undefined" && __DEV__) {
-          setZone(msg.payload.polygon);
-        }
-      }
+if (msg.type === "msg") {
+  if (msg.payload.type === "zone_prompt") {
+    setDrawPrompt(msg.payload.active);
+  } else if (msg.payload.type === "clear_zone") {
+    clearZone();
+  } else if (msg.payload.type === "drive_viewport") {
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      document.dispatchEvent(
+        new CustomEvent(EVT.drive, { detail: { bbox: msg.payload.bbox } }),
+      );
     }
+  } else if (msg.payload.type === "drive_zone") {
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      setZone(msg.payload.polygon);
+    }
+  }
+}
 ```
 
 - [ ] **Step 4: Verify a dev build succeeds**
 
-Run: `deno run -A build.ts`
-Expected: `Build complete.` with no errors.
+Run: `deno run -A build.ts` Expected: `Build complete.` with no errors.
 
 - [ ] **Step 5: Commit**
 
@@ -843,11 +906,15 @@ git commit -m "Handle dev-gated drive_viewport/drive_zone in both relays"
 ### Task 8: Install the dev-only panel hooks
 
 **Files:**
-- Modify: `src/panel/App.tsx` (imports near top; new module-level helpers; new mount effect)
+
+- Modify: `src/panel/App.tsx` (imports near top; new module-level helpers; new
+  mount effect)
 
 - [ ] **Step 1: Add imports and the `__DEV__` declaration**
 
-In `src/panel/App.tsx`, add to the type import from `../types.ts` the `BBox` type, and import the parity core. After the existing imports (e.g. after the `AggregateSummary` import on line 34), add:
+In `src/panel/App.tsx`, add to the type import from `../types.ts` the `BBox`
+type, and import the parity core. After the existing imports (e.g. after the
+`AggregateSummary` import on line 34), add:
 
 ```ts
 import { buildFigures } from "./lib/parity.ts";
@@ -857,7 +924,8 @@ import type { SeriesSide } from "./lib/aggregate.ts";
 declare const __DEV__: boolean;
 ```
 
-Also extend the existing `import type { ... } from "../types.ts";` block to include `BBox`:
+Also extend the existing `import type { ... } from "../types.ts";` block to
+include `BBox`:
 
 ```ts
 import type {
@@ -872,7 +940,8 @@ import type {
 
 - [ ] **Step 2: Add the pure-ish snapshot helpers at module scope**
 
-Below the imports, above `function App()` (after the `MetricSection` interface, ~line 49), add:
+Below the imports, above `function App()` (after the `MetricSection` interface,
+~line 49), add:
 
 ```ts
 // Bounding box of a polygon — used to drive the target map far enough to cover
@@ -920,82 +989,87 @@ function buildSnapshot(store: TabStore): ParitySnapshot {
 
 - [ ] **Step 3: Install the hooks in a mount-once effect**
 
-Inside `App()`, after the `postToRelay` `useCallback` (ends ~line 231), add a new effect. It depends on `postToRelay` (stable, `[]` deps) and reads `tabStores.current` live:
+Inside `App()`, after the `postToRelay` `useCallback` (ends ~line 231), add a
+new effect. It depends on `postToRelay` (stable, `[]` deps) and reads
+`tabStores.current` live:
 
 ```ts
-  // Dev-only parity harness: expose capture + sync hooks on the panel window.
-  // Stripped from --prod (__DEV__ === false → the whole effect is dead code).
-  useEffect(() => {
-    if (typeof __DEV__ === "undefined" || !__DEV__) return;
-    const w = window as unknown as {
-      __seelevelSnapshot?: () => ParitySnapshot[];
-      __seelevelSync?: (
-        opts?: { from?: number; to?: number; what?: "viewport" | "zone" | "both" },
-      ) => unknown;
-    };
+// Dev-only parity harness: expose capture + sync hooks on the panel window.
+// Stripped from --prod (__DEV__ === false → the whole effect is dead code).
+useEffect(() => {
+  if (typeof __DEV__ === "undefined" || !__DEV__) return;
+  const w = window as unknown as {
+    __seelevelSnapshot?: () => ParitySnapshot[];
+    __seelevelSync?: (
+      opts?: {
+        from?: number;
+        to?: number;
+        what?: "viewport" | "zone" | "both";
+      },
+    ) => unknown;
+  };
 
-    w.__seelevelSnapshot = () =>
-      Array.from(tabStores.current.values()).map(buildSnapshot);
+  w.__seelevelSnapshot = () =>
+    Array.from(tabStores.current.values()).map(buildSnapshot);
 
-    w.__seelevelSync = (opts = {}) => {
-      const stores = Array.from(tabStores.current.values());
-      const find = (kw: string) =>
-        stores.find((s) => (s.host ?? "").includes(kw));
-      const fromStore = opts.from !== undefined
-        ? tabStores.current.get(opts.from)
-        : find("viewpoint");
-      const toStore = opts.to !== undefined
-        ? tabStores.current.get(opts.to)
-        : find("engelvoelkers");
-      if (!fromStore || !toStore) {
-        return {
-          error: "need one ViewPoint and one EV tab open (or pass {from,to})",
-        };
-      }
-      const what = opts.what ?? "both";
-      const result: Record<string, unknown> = {
-        from: fromStore.tabId,
-        to: toStore.tabId,
-        what,
+  w.__seelevelSync = (opts = {}) => {
+    const stores = Array.from(tabStores.current.values());
+    const find = (kw: string) =>
+      stores.find((s) => (s.host ?? "").includes(kw));
+    const fromStore = opts.from !== undefined
+      ? tabStores.current.get(opts.from)
+      : find("viewpoint");
+    const toStore = opts.to !== undefined
+      ? tabStores.current.get(opts.to)
+      : find("engelvoelkers");
+    if (!fromStore || !toStore) {
+      return {
+        error: "need one ViewPoint and one EV tab open (or pass {from,to})",
       };
-      if ((what === "viewport" || what === "both") && fromStore.viewportBbox) {
-        postToRelay(toStore.tabId, {
-          type: "drive_viewport",
-          bbox: fromStore.viewportBbox,
-        });
-        result.bbox = fromStore.viewportBbox;
-      }
-      if ((what === "zone" || what === "both") && fromStore.polygon) {
-        // Drive the target far enough to cover the zone, then apply the zone.
-        postToRelay(toStore.tabId, {
-          type: "drive_viewport",
-          bbox: polygonBbox(fromStore.polygon),
-        });
-        postToRelay(toStore.tabId, {
-          type: "drive_zone",
-          polygon: fromStore.polygon,
-        });
-        result.polygon = fromStore.polygon;
-      }
-      return result;
+    }
+    const what = opts.what ?? "both";
+    const result: Record<string, unknown> = {
+      from: fromStore.tabId,
+      to: toStore.tabId,
+      what,
     };
+    if ((what === "viewport" || what === "both") && fromStore.viewportBbox) {
+      postToRelay(toStore.tabId, {
+        type: "drive_viewport",
+        bbox: fromStore.viewportBbox,
+      });
+      result.bbox = fromStore.viewportBbox;
+    }
+    if ((what === "zone" || what === "both") && fromStore.polygon) {
+      // Drive the target far enough to cover the zone, then apply the zone.
+      postToRelay(toStore.tabId, {
+        type: "drive_viewport",
+        bbox: polygonBbox(fromStore.polygon),
+      });
+      postToRelay(toStore.tabId, {
+        type: "drive_zone",
+        polygon: fromStore.polygon,
+      });
+      result.polygon = fromStore.polygon;
+    }
+    return result;
+  };
 
-    return () => {
-      delete w.__seelevelSnapshot;
-      delete w.__seelevelSync;
-    };
-  }, [postToRelay]);
+  return () => {
+    delete w.__seelevelSnapshot;
+    delete w.__seelevelSync;
+  };
+}, [postToRelay]);
 ```
 
 - [ ] **Step 4: Verify a dev build succeeds**
 
-Run: `deno run -A build.ts`
-Expected: `Build complete.` with no errors.
+Run: `deno run -A build.ts` Expected: `Build complete.` with no errors.
 
 - [ ] **Step 5: Confirm the hooks are present in the DEV bundle**
 
-Run: `grep -c "__seelevelSnapshot" build/panel/panel.js`
-Expected: a non-zero count (the dev build retains the hook).
+Run: `grep -c "__seelevelSnapshot" build/panel/panel.js` Expected: a non-zero
+count (the dev build retains the hook).
 
 - [ ] **Step 6: Commit**
 
@@ -1012,33 +1086,36 @@ git commit -m "Install dev-only __seelevelSnapshot/__seelevelSync panel hooks"
 
 - [ ] **Step 1: Run the full test suite**
 
-Run: `deno test -A src/`
-Expected: all tests pass (the prior 63 + the new parity tests).
+Run: `deno test -A src/` Expected: all tests pass (the prior 63 + the new parity
+tests).
 
 - [ ] **Step 2: Format and lint**
 
-Run: `deno fmt && deno lint`
-Expected: no changes reported by `fmt` after it runs (re-run `deno fmt --check` to confirm), no lint errors.
+Run: `deno fmt && deno lint` Expected: no changes reported by `fmt` after it
+runs (re-run `deno fmt --check` to confirm), no lint errors.
 
 - [ ] **Step 3: Production build**
 
-Run: `deno run -A build.ts --prod`
-Expected: `Build complete (production).`
+Run: `deno run -A build.ts --prod` Expected: `Build complete (production).`
 
 - [ ] **Step 4: Grep the prod bundles — the harness must be gone**
 
 Run:
+
 ```bash
 grep -l "__seelevelSnapshot\|__seelevelSync\|seelevel:drive\|drive_viewport\|drive_zone" build/panel/panel.js build/content/relay.js build/content/ev/relay.js build/content/fetch-interceptor.js build/content/ev/main.js; echo "exit: $?"
 ```
-Expected: no file paths printed and `exit: 1` (grep found nothing — every dev path was dead-code-eliminated).
 
-> If any path prints, the gating failed: confirm the `__DEV__` define is `false` under `--prod` (Task 1) and that each producer/consumer is wrapped in `if (typeof __DEV__ !== "undefined" && __DEV__)` (Tasks 5, 7, 8).
+Expected: no file paths printed and `exit: 1` (grep found nothing — every dev
+path was dead-code-eliminated).
+
+> If any path prints, the gating failed: confirm the `__DEV__` define is `false`
+> under `--prod` (Task 1) and that each producer/consumer is wrapped in
+> `if (typeof __DEV__ !== "undefined" && __DEV__)` (Tasks 5, 7, 8).
 
 - [ ] **Step 5: Restore the dev build for manual testing**
 
-Run: `deno run -A build.ts`
-Expected: `Build complete.`
+Run: `deno run -A build.ts` Expected: `Build complete.`
 
 - [ ] **Step 6: Commit (if fmt changed anything)**
 
@@ -1053,39 +1130,66 @@ git commit -m "Run deno fmt across the parity harness" || echo "nothing to commi
 
 **Files:** none (manual; uses the procedure in the spec)
 
-This task is not automatable — it exercises the live sites and is how we gather the data to settle the tolerance.
+This task is not automatable — it exercises the live sites and is how we gather
+the data to settle the tolerance.
 
-- [ ] **Step 1: Load the dev build** in `chrome://extensions` (Load unpacked → `build/`).
+- [ ] **Step 1: Load the dev build** in `chrome://extensions` (Load unpacked →
+      `build/`).
 
-- [ ] **Step 2:** Open a `*.viewpoint.ca/map*` tab and a `*.engelvoelkersnovascotia.com/map*` tab; open the side panel. Pan each map roughly to central Halifax. Set the same status filter (for sale) and window (monthly) in the panel.
+- [ ] **Step 2:** Open a `*.viewpoint.ca/map*` tab and a
+      `*.engelvoelkersnovascotia.com/map*` tab; open the side panel. Pan each
+      map roughly to central Halifax. Set the same status filter (for sale) and
+      window (monthly) in the panel.
 
-- [ ] **Step 3:** With Chrome DevTools MCP, `select_page` → the panel page, then:
+- [ ] **Step 3:** With Chrome DevTools MCP, `select_page` → the panel page,
+      then:
   - `evaluate_script: __seelevelSync({ what: "viewport" })`
-  - poll `evaluate_script: __seelevelSnapshot()` until the EV tab's `bbox` matches the driven bbox and its `loading` is `false`
+  - poll `evaluate_script: __seelevelSnapshot()` until the EV tab's `bbox`
+    matches the driven bbox and its `loading` is `false`
   - `evaluate_script: __seelevelSnapshot()` → capture both snapshots
 
-- [ ] **Step 4:** Run `compareAggregates(viewpointSnap, evSnap)` and read the report — `aligned` first, then the delta table.
+- [ ] **Step 4:** Run `compareAggregates(viewpointSnap, evSnap)` and read the
+      report — `aligned` first, then the delta table.
 
-- [ ] **Step 5:** Repeat for "sold" and for a drawn zone (`__seelevelSync({ what: "zone" })`) across 2–3 areas. Record where the figures actually land.
+- [ ] **Step 5:** Repeat for "sold" and for a drawn zone
+      (`__seelevelSync({ what: "zone" })`) across 2–3 areas. Record where the
+      figures actually land.
 
-- [ ] **Step 6:** Using that data, settle a tolerance and update the spec's Testing section (graduating `pass` from advisory to a recorded threshold). Commit the spec update.
+- [ ] **Step 6:** Using that data, settle a tolerance and update the spec's
+      Testing section (graduating `pass` from advisory to a recorded threshold).
+      Commit the spec update.
 
 ---
 
 ## Self-Review
 
 **1. Spec coverage:**
-- Capture hook on the panel returning one snapshot per tab → Task 8 (`__seelevelSnapshot` + `buildSnapshot`). ✓
-- `ParitySnapshot` shape (tabId/host/scope/status/window/loading/bbox/polygon/figures) → Task 3 type + Task 8 builder. ✓
-- `ParityFigures` from scoped listings, latest complete bucket, reusing aggregate + priceHistogram → Task 2. ✓
-- Pure `buildFigures` + `compareAggregates`, delta table, advisory tolerance, `aligned` first → Tasks 2, 3. ✓
-- Viewport drive via shared hook `currentMap.fitBounds` → Task 5; downward messages → Task 4; relay handlers → Task 7. ✓
+
+- Capture hook on the panel returning one snapshot per tab → Task 8
+  (`__seelevelSnapshot` + `buildSnapshot`). ✓
+- `ParitySnapshot` shape
+  (tabId/host/scope/status/window/loading/bbox/polygon/figures) → Task 3 type +
+  Task 8 builder. ✓
+- `ParityFigures` from scoped listings, latest complete bucket, reusing
+  aggregate + priceHistogram → Task 2. ✓
+- Pure `buildFigures` + `compareAggregates`, delta table, advisory tolerance,
+  `aligned` first → Tasks 2, 3. ✓
+- Viewport drive via shared hook `currentMap.fitBounds` → Task 5; downward
+  messages → Task 4; relay handlers → Task 7. ✓
 - Zone drive via overlay `setZone` + drive-to-polygon-bbox → Tasks 6, 8. ✓
 - `__seelevelSync({from,to,what})` with ViewPoint→EV default → Task 8. ✓
 - `__DEV__` define on all bundles + `--prod` strip + grep proof → Tasks 1, 9. ✓
 - DevTools procedure + tolerance-from-real-runs → Task 10. ✓
 - Files list matches spec's Files section. ✓
 
-**2. Placeholder scan:** No TBD/TODO; every code step shows complete code; every run step gives an exact command and expected output. ✓
+**2. Placeholder scan:** No TBD/TODO; every code step shows complete code; every
+run step gives an exact command and expected output. ✓
 
-**3. Type consistency:** `buildFigures(listings, buckets, side)` defined in Task 2 and called identically in Task 8. `ParitySnapshot`/`ParityFigures`/`compareAggregates`/`DEFAULT_TOL` defined in Tasks 2–3 and imported in Task 8. `EVT.drive` added in Task 4, dispatched in Task 7, listened for in Task 5. `setZone` exported in Task 6, imported in Task 7. `PanelToContent` drive variants added in Task 4, sent in Task 8, handled in Task 7. `__seelevelSnapshot`/`__seelevelSync` names consistent across Tasks 8–10. ✓
+**3. Type consistency:** `buildFigures(listings, buckets, side)` defined in Task
+2 and called identically in Task 8.
+`ParitySnapshot`/`ParityFigures`/`compareAggregates`/`DEFAULT_TOL` defined in
+Tasks 2–3 and imported in Task 8. `EVT.drive` added in Task 4, dispatched in
+Task 7, listened for in Task 5. `setZone` exported in Task 6, imported in
+Task 7. `PanelToContent` drive variants added in Task 4, sent in Task 8, handled
+in Task 7. `__seelevelSnapshot`/`__seelevelSync` names consistent across Tasks
+8–10. ✓

@@ -1,3 +1,5 @@
+import type { ZoneShape } from "../../types.ts";
+
 // [lat, lng] polygon - all coords in geographic degrees
 
 export function pointInPolygon(
@@ -31,4 +33,19 @@ export function polygonArea(polygon: [number, number][]): number {
     area += lng1 * lat2 - lng2 * lat1;
   }
   return Math.abs(area / 4);
+}
+
+// A point is in the multipolygon if it lies inside some part's outer ring and
+// inside none of that part's holes.
+export function pointInMultiPolygon(
+  lat: number,
+  lng: number,
+  shape: ZoneShape,
+): boolean {
+  for (const part of shape) {
+    if (!pointInPolygon(lat, lng, part.outer)) continue;
+    if (part.holes.some((h) => pointInPolygon(lat, lng, h))) continue;
+    return true;
+  }
+  return false;
 }

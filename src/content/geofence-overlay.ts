@@ -6,41 +6,37 @@ import "@geoman-io/leaflet-geoman-free";
 import leafletCss from "leaflet/dist/leaflet.css";
 // @ts-ignore - CSS imported as text string via esbuild npm-css-text plugin
 import geomanCss from "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
-import type { BBox } from "../types.ts";
+import type { BBox, ZoneShape } from "../types.ts";
 
 // Callback registered by relay.ts so zone changes propagate through the
 // shared "relay" port instead of the legacy broadcast mechanism.
-let onZoneChange: ((polygon: [number, number][] | null) => void) | null = null;
+let onZoneChange: ((shape: ZoneShape | null) => void) | null = null;
 export function setOnZoneChange(
-  fn: (polygon: [number, number][] | null) => void,
+  fn: (shape: ZoneShape | null) => void,
 ): void {
   onZoneChange = fn;
 }
 
-let leafletMap: L.Map | null = null;
-let drawnLayer: L.Polygon | null = null;
-let drawBtn: HTMLButtonElement | null = null;
-let clearBtn: HTMLButtonElement | null = null;
-let overlayEl: HTMLElement | null = null;
+let onDrawStateChange: ((drawing: boolean) => void) | null = null;
+export function setOnDrawStateChange(fn: (drawing: boolean) => void): void {
+  onDrawStateChange = fn;
+}
 
-// ─── In-progress draw state ───────────────────────────────────────────────────
-// The zone is drawn by click-to-place rather than Geoman's draw mode. Geoman's
-// draw needs the overlay to capture every pointer event, which blocks the map.
-// Here the overlay stays pointer-events:none throughout, so drags and scrolls
-// fall straight through - the map pans and zooms freely while drawing - and
-// vertices are placed from a document-level click listener (a click never
-// fires at the end of a pan-drag).
+let leafletMap: L.Map | null = null;
+let drawnLayer: L.Polygon | null = null; // editable custom-draw layer
+let regionLayers: L.Polygon[] = []; // non-editable rendered region parts
+let currentShape: ZoneShape | null = null; // the active zone (custom or region)
+let overlayEl: HTMLElement | null = null;
+let hintEl: HTMLElement | null = null;
+
+// ─── In-progress draw state ───────────────────────────────────────────────
 let drawing = false;
 let draftPts: L.LatLng[] = [];
-let draftShape: L.Polyline | null = null; // placed points
-let draftHint: L.Polyline | null = null; // rubber-band from last point to cursor
-let draftStartDot: L.CircleMarker | null = null; // click-to-close affordance
+let draftShape: L.Polyline | null = null;
+let draftHint: L.Polyline | null = null;
+let draftStartDot: L.CircleMarker | null = null;
+let cursorDot: L.CircleMarker | null = null; // follows the mouse from draw start
 let mouseDownAt: { x: number; y: number } | null = null;
-
-// Set by the panel: pulse the draw button while the Zone tab is open with no
-// zone yet. `buttonState` is tracked so the pulse only shows in the idle state.
-let promptActive = false;
-let buttonState: "idle" | "drawing" | "active" = "idle";
 
 function injectStyles(): void {
   if (document.getElementById("seelevel-leaflet-css")) return;
@@ -48,20 +44,8 @@ function injectStyles(): void {
   style.id = "seelevel-leaflet-css";
   style.textContent = leafletCss + "\n" + geomanCss +
     "\n#seelevel-leaflet-overlay.leaflet-container { background: transparent !important; }" +
-    // Leaflet's own rule `.leaflet-pane > svg path.leaflet-interactive` forces
-    // pointer-events:auto back onto the polygon path, overriding the pane. Kill
-    // it: the polygon must NEVER capture events so pan/zoom passes through to
-    // Google Maps. Geoman's vertex handles are div markers in markerPane (not
-    // paths), so polygon editing is unaffected.
     "\n#seelevel-leaflet-overlay .leaflet-overlay-pane svg path" +
-    " { pointer-events: none !important; cursor: inherit !important; }" +
-    // Attention pulse for the draw button when a zone is expected but missing.
-    "\n@keyframes seelevel-zone-pulse {" +
-    " 0%,100% { box-shadow: 0 1px 5px rgba(0,0,0,.15); }" +
-    " 50% { box-shadow: 0 0 0 5px rgba(255,194,102,.6), 0 1px 6px rgba(0,0,0,.25); } }" +
-    "\n#seelevel-draw-wrap .seelevel-draw-btn--prompt {" +
-    " animation: seelevel-zone-pulse 1.2s ease-in-out infinite;" +
-    " border-color: #ffc266 !important; }";
+    " { pointer-events: none !important; cursor: inherit !important; }";
   document.head.appendChild(style);
 }
 
@@ -78,103 +62,57 @@ function setInteractivePanes(active: boolean): void {
 }
 
 export function clearZone(): void {
-  if (drawing) endDraw(false); // cancel any in-progress draw first
+  if (drawing) endDraw(false);
   if (drawnLayer) {
     leafletMap?.removeLayer(drawnLayer);
     drawnLayer = null;
   }
-  setButtonState("idle");
+  for (const lyr of regionLayers) leafletMap?.removeLayer(lyr);
+  regionLayers = [];
+  currentShape = null;
   setInteractivePanes(false);
   onZoneChange?.(null);
 }
 
-// Pulse the draw button only when the panel asked for it AND no zone exists
-// (idle state) - never mid-draw or while a zone is already drawn.
-function refreshPrompt(): void {
-  drawBtn?.classList.toggle(
-    "seelevel-draw-btn--prompt",
-    promptActive && buttonState === "idle",
-  );
+// Faint on-map instruction banner shown only while drawing.
+function showHint(): void {
+  if (!overlayEl || hintEl) return;
+  hintEl = document.createElement("div");
+  hintEl.id = "seelevel-draw-hint";
+  hintEl.textContent =
+    "Click to add points · click the first point to close · Esc to cancel";
+  hintEl.style.cssText =
+    "position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:3;" +
+    "pointer-events:none;background:rgba(0,0,0,.62);color:#fff;font-size:10px;" +
+    "font-weight:600;padding:4px 9px;border-radius:6px;white-space:nowrap;";
+  overlayEl.parentElement?.appendChild(hintEl);
 }
-
-function setButtonState(state: "idle" | "drawing" | "active"): void {
-  buttonState = state;
-  if (!drawBtn || !clearBtn) return;
-  if (state === "idle") {
-    drawBtn.textContent = "⬡ Draw Zone";
-    drawBtn.className = "seelevel-draw-btn";
-    clearBtn.style.display = "none";
-  } else if (state === "drawing") {
-    drawBtn.textContent = "✕ Cancel";
-    drawBtn.className = "seelevel-draw-btn seelevel-draw-btn--drawing";
-    clearBtn.style.display = "none";
-  } else {
-    drawBtn.textContent = "⬡ Redraw";
-    drawBtn.className = "seelevel-draw-btn seelevel-draw-btn--active";
-    clearBtn.style.display = "block";
+function hideHint(): void {
+  if (hintEl) {
+    hintEl.remove();
+    hintEl = null;
   }
-  refreshPrompt();
-}
-
-// Called from the relay when the panel's Zone tab opens/closes without a zone.
-export function setDrawPrompt(active: boolean): void {
-  promptActive = active;
-  refreshPrompt();
-}
-
-function buildButtons(container: HTMLElement): void {
-  const wrap = document.createElement("div");
-  wrap.id = "seelevel-draw-wrap";
-  // Bottom-right, just above Google's Layers + Street View controls, and
-  // right-aligned with them (their right edge sits ~4px off the map edge).
-  wrap.style.cssText =
-    "position:absolute;right:4px;bottom:125px;z-index:2;display:flex;gap:4px;";
-
-  drawBtn = document.createElement("button");
-  drawBtn.className = "seelevel-draw-btn";
-  drawBtn.textContent = "⬡ Draw Zone";
-  drawBtn.style.cssText =
-    "background:#fff;border:1.5px solid rgba(0,0,0,.18);border-radius:6px;padding:5px 9px;" +
-    "font-size:9.5px;font-weight:700;color:#333;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.15);";
-
-  clearBtn = document.createElement("button");
-  clearBtn.style.cssText =
-    "display:none;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:6px;" +
-    "padding:5px 8px;font-size:9px;font-weight:600;color:#888;cursor:pointer;";
-  clearBtn.textContent = "✕";
-
-  drawBtn.addEventListener("click", () => {
-    // While drawing: finish if the polygon has enough points, else cancel.
-    if (drawing) endDraw(draftPts.length >= 3);
-    else startDraw();
-  });
-
-  clearBtn.addEventListener("click", clearZone);
-
-  // ✕ delete sits to the LEFT of the draw/redraw button.
-  wrap.appendChild(clearBtn);
-  wrap.appendChild(drawBtn);
-  container.appendChild(wrap);
 }
 
 // ─── Click-to-place draw ──────────────────────────────────────────────────────
 
-function startDraw(): void {
-  clearZone(); // remove any existing polygon
+export function beginDraw(): void {
+  clearZone();
   drawing = true;
   draftPts = [];
   mouseDownAt = null;
-  setButtonState("drawing");
+  showHint();
   document.addEventListener("mousedown", onDraftDown, true);
   document.addEventListener("click", onDraftClick, true);
   document.addEventListener("mousemove", onDraftMove, true);
   document.addEventListener("keydown", onDraftKey, true);
-  // Suppress click/dblclick/contextmenu that land over the map so Google
-  // Maps' marker popups, double-click zoom and context menu don't fire while
-  // drawing. mousedown/move/wheel pass through, so pan, drag and scroll-wheel
-  // zoom still work normally.
   document.addEventListener("dblclick", onSuppressOverMap, true);
   document.addEventListener("contextmenu", onSuppressOverMap, true);
+  onDrawStateChange?.(true);
+}
+
+export function cancelDraw(): void {
+  if (drawing) endDraw(false);
 }
 
 function endDraw(commit: boolean): void {
@@ -187,11 +125,16 @@ function endDraw(commit: boolean): void {
   document.removeEventListener("dblclick", onSuppressOverMap, true);
   document.removeEventListener("contextmenu", onSuppressOverMap, true);
   mouseDownAt = null;
+  hideHint();
 
-  for (const layer of [draftShape, draftHint, draftStartDot]) {
+  for (const layer of [draftShape, draftHint, draftStartDot, cursorDot]) {
     if (layer) leafletMap?.removeLayer(layer);
   }
-  draftShape = draftHint = draftStartDot = null;
+  draftShape =
+    draftHint =
+    draftStartDot =
+    cursorDot =
+      null;
   const pts = draftPts;
   draftPts = [];
 
@@ -199,9 +142,8 @@ function endDraw(commit: boolean): void {
     const poly = L.polygon(pts);
     poly.addTo(leafletMap);
     onPolygonCreated(poly);
-  } else {
-    setButtonState(drawnLayer ? "active" : "idle");
   }
+  onDrawStateChange?.(false);
 }
 
 // Is the event over the map proper - not a control or our own buttons, and not
@@ -211,7 +153,7 @@ function overMap(e: MouseEvent): boolean {
   const t = e.target as Element | null;
   if (
     t && typeof t.closest === "function" &&
-    t.closest("#seelevel-draw-wrap, .gmnoprint, .gm-style-cc")
+    t.closest(".gmnoprint, .gm-style-cc")
   ) return false;
   const r = overlayEl.getBoundingClientRect();
   return e.clientX >= r.left && e.clientX <= r.right &&
@@ -223,10 +165,21 @@ function onDraftDown(e: MouseEvent): void {
 }
 
 function onDraftMove(e: MouseEvent): void {
-  if (!leafletMap || draftPts.length === 0 || !overMap(e)) return;
-  redrawDraft(
-    leafletMap.containerPointToLatLng(leafletMap.mouseEventToContainerPoint(e)),
+  if (!leafletMap || !overMap(e)) return;
+  const at = leafletMap.containerPointToLatLng(
+    leafletMap.mouseEventToContainerPoint(e),
   );
+  if (cursorDot) cursorDot.setLatLng(at);
+  else {
+    cursorDot = L.circleMarker(at, {
+      radius: 4,
+      color: "#ffc266",
+      fillColor: "#ffc266",
+      fillOpacity: 0.9,
+      weight: 1,
+    }).addTo(leafletMap);
+  }
+  if (draftPts.length > 0) redrawDraft(at);
 }
 
 function onSuppressOverMap(e: Event): void {
@@ -277,6 +230,8 @@ function onDraftClick(e: MouseEvent): void {
 function onDraftKey(e: KeyboardEvent): void {
   if (e.key === "Escape") {
     endDraw(false);
+  } else if (e.key === "Enter") {
+    endDraw(draftPts.length >= 3);
   } else if (
     (e.key === "Backspace" || e.key === "Delete") && draftPts.length > 0
   ) {
@@ -329,34 +284,26 @@ function redrawDraft(cursor?: L.LatLng): void {
       }).addTo(leafletMap);
     }
   }
-
-  if (drawBtn) {
-    drawBtn.textContent = draftPts.length >= 3 ? "✓ Finish" : "✕ Cancel";
-  }
 }
 
 function onPolygonCreated(layer: L.Polygon): void {
   drawnLayer = layer;
-  setButtonState("active");
-
   layer.setStyle({
     color: "#1f9bbf",
     fillColor: "#1f9bbf",
     fillOpacity: 0.1,
     weight: 1.5,
   });
-
   layer.pm.enable({ allowSelfIntersection: false });
   setInteractivePanes(true);
 
   const updateZone = () => {
     const latlngs = layer.getLatLngs()[0] as L.LatLng[];
-    const polygon: [number, number][] = latlngs.map((p) => [p.lat, p.lng]);
-    onZoneChange?.(polygon);
+    const outer: [number, number][] = latlngs.map((p) => [p.lat, p.lng]);
+    currentShape = [{ outer, holes: [] }];
+    onZoneChange?.(currentShape);
   };
-
   updateZone();
-
   layer.on("pm:edit", updateZone);
   layer.on("pm:vertexadded", updateZone);
   layer.on("pm:vertexremoved", updateZone);
@@ -394,8 +341,6 @@ function initLeafletOverlay(mapContainer: HTMLElement): void {
   new ResizeObserver(() => leafletMap?.invalidateSize()).observe(mapContainer);
 
   leafletMap.pm.setGlobalOptions({ allowSelfIntersection: false });
-
-  buildButtons(mapContainer);
 }
 
 export function initGeofenceOverlay(): void {
@@ -439,26 +384,31 @@ export function setOverlayVisible(visible: boolean): void {
   if (overlayEl) overlayEl.style.visibility = visible ? "visible" : "hidden";
 }
 
-export function getCurrentPolygon(): [number, number][] | null {
-  if (!drawnLayer) return null;
-  return (drawnLayer.getLatLngs()[0] as L.LatLng[]).map((p) => [p.lat, p.lng]);
+export function getCurrentShape(): ZoneShape | null {
+  return currentShape;
 }
 
-// Programmatically render a zone polygon (parity harness drive_zone). Reuses
-// onPolygonCreated so the synced zone behaves exactly like a hand-drawn one —
-// styled, editable, and propagated to the panel via onZoneChange.
-export function setZone(polygon: [number, number][]): void {
-  if (!leafletMap || polygon.length < 3) return;
-  if (drawing) endDraw(false);
-  if (drawnLayer) {
-    leafletMap.removeLayer(drawnLayer);
-    drawnLayer = null;
+// Render a predefined region: one non-editable Leaflet polygon per part (with
+// holes). Replaces any existing zone and becomes the current shape.
+export function showZone(shape: ZoneShape): void {
+  if (!leafletMap || shape.length === 0) return;
+  clearZone();
+  for (const part of shape) {
+    const rings: L.LatLngExpression[][] = [
+      part.outer.map(([lat, lng]) => [lat, lng]),
+      ...part.holes.map((h) => h.map(([lat, lng]) => [lat, lng])),
+    ];
+    const poly = L.polygon(rings, {
+      color: "#1f9bbf",
+      fillColor: "#1f9bbf",
+      fillOpacity: 0.1,
+      weight: 1.5,
+    });
+    poly.addTo(leafletMap);
+    regionLayers.push(poly);
   }
-  const poly = L.polygon(
-    polygon.map(([lat, lng]) => [lat, lng] as L.LatLngTuple),
-  );
-  poly.addTo(leafletMap);
-  onPolygonCreated(poly);
+  currentShape = shape;
+  onZoneChange?.(shape);
 }
 
 // Coverage % is shown in the side panel - no map overlay rectangles needed.

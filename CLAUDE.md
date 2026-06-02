@@ -155,6 +155,15 @@ new npm dep that ships CSS, this plugin will pick it up automatically - but it
 requires the package to be cached (run a dev build once after any `deno.json`
 change).
 
+**Boundary data pipeline** - `scripts/boundaries/` fetches Socrata view
+`7bqh-hssn` (NS municipal boundaries from the provincial open-data portal),
+RDP-simplifies each polygon ring, and writes
+`src/panel/data/ns-municipalities.json` (49 municipalities, ~98 KB gzipped).
+This file is committed; normal, `--prod`, and `--package` builds are fully
+offline and need no secrets. The pipeline only runs when `--refresh-boundaries`
+is passed to `build.ts` (or when the artifact is missing). Requires
+`SOCRATA_API_KEY` and `SOCRATA_API_SECRET` in `.env`.
+
 ## Compliance constraints (these are load-bearing)
 
 These constraints exist for legal/Web Store reasons. Don't relax them:
@@ -171,7 +180,10 @@ These constraints exist for legal/Web Store reasons. Don't relax them:
   `docs/superpowers/specs/2026-05-26-permissions-minimization-design.md`.)
 - **Nothing is persisted, full stop.** Zero `chrome.storage` usage. The EULA is
   acknowledged per panel-mount via plain `useState`. Listing/analytical data
-  lives in Preact memory only.
+  lives in Preact memory only. The bundled
+  `src/panel/data/ns-municipalities.json` is a static asset read at runtime - it
+  is not written to or read from `chrome.storage`, and the Socrata fetch that
+  generates it is build-time only (never present in the shipped extension).
 - **CSV export is aggregate-only**, with a `< 5 listings` bucket floor and an
   attribution header row. Never export raw listing records.
 - **Manifest permissions are exactly `["sidePanel"]`.** No `host_permissions`,

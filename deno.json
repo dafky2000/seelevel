@@ -11,5 +11,8 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "lib": ["deno.ns", "dom", "dom.iterable", "esnext"]
+  },
+  "fmt": {
+    "exclude": ["build/", "src/panel/data/ns-municipalities.json"]
   }
 }

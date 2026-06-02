@@ -14,17 +14,17 @@ import type {
 } from "../types.ts";
 import { DRIVE_EVENT, EVT } from "../types.ts";
 import {
+  beginDraw,
+  cancelDraw,
   clearZone,
-  getCurrentPolygon,
+  getCurrentShape,
   initGeofenceOverlay,
-  setDrawPrompt,
+  setOnDrawStateChange,
   setOnZoneChange,
   setOverlayVisible,
-  setZone,
+  showZone,
   syncMapView,
 } from "./geofence-overlay.ts";
-
-declare const __DEV__: boolean;
 
 let lastBbox: BBox | null = null;
 let lastNewTodayRaw = ""; // last seen localStorage["vp.new_today"] payload
@@ -64,22 +64,15 @@ function openPort(): chrome.runtime.Port {
       return;
     }
     if (msg.type === "msg") {
-      if (msg.payload.type === "zone_prompt") {
-        setDrawPrompt(msg.payload.active);
-      } else if (msg.payload.type === "clear_zone") {
-        clearZone();
-      } else if (
-        typeof __DEV__ !== "undefined" && __DEV__ &&
-        msg.payload.type === "drive_viewport"
-      ) {
+      const p = msg.payload;
+      if (p.type === "clear_zone") clearZone();
+      else if (p.type === "begin_draw") beginDraw();
+      else if (p.type === "cancel_draw") cancelDraw();
+      else if (p.type === "show_zone") showZone(p.shape);
+      else if (p.type === "drive_viewport") {
         document.dispatchEvent(
-          new CustomEvent(DRIVE_EVENT, { detail: { bbox: msg.payload.bbox } }),
+          new CustomEvent(DRIVE_EVENT, { detail: { bbox: p.bbox } }),
         );
-      } else if (
-        typeof __DEV__ !== "undefined" && __DEV__ &&
-        msg.payload.type === "drive_zone"
-      ) {
-        setZone(msg.payload.polygon);
       }
     }
   });
@@ -128,7 +121,7 @@ function emit(payload: ContentToPanel): void {
 function clearAndReEmit(): void {
   lastNewTodayRaw = ""; // force pollNewTodayCache to re-emit on next tick
   if (lastBbox) emit({ type: "viewport_bbox", bbox: lastBbox });
-  emit({ type: "zone", polygon: getCurrentPolygon() });
+  emit({ type: "zone", shape: getCurrentShape() });
   // Trigger a fresh poll synchronously so new_today (cache-only mode) doesn't
   // have to wait for the next 1.5s tick.
   pollNewTodayCache();
@@ -203,8 +196,8 @@ document.addEventListener(EVT.listings, (e) => {
     status: kind === "search" ? parsed.status : "any",
   });
 
-  // Re-send the current polygon so a late-bound panel always knows the zone state.
-  emit({ type: "zone", polygon: getCurrentPolygon() });
+  // Re-send the current zone so a late-bound panel always knows the zone state.
+  emit({ type: "zone", shape: getCurrentShape() });
 });
 
 // ─── ViewPoint mode-switch detection ──────────────────────────────────────────
@@ -265,6 +258,7 @@ setInterval(pollNewTodayCache, 1500);
 pollNewTodayCache();
 
 // Zone draw/edit/clear events from the overlay → panel, via the shared port.
-setOnZoneChange((polygon) => emit({ type: "zone", polygon }));
+setOnZoneChange((shape) => emit({ type: "zone", shape }));
+setOnDrawStateChange((drawing) => emit({ type: "draw_state", drawing }));
 
 initGeofenceOverlay();

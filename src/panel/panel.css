@@ -265,6 +265,24 @@ body {
   color: var(--color-muted);
   border-color: var(--color-border);
 }
+.seelevel-btn--active {
+  background: oklch(25% 0.1 160);
+  color: oklch(78% 0.18 160);
+  border-color: oklch(42% 0.15 160);
+}
+
+/* Zone-tab region picker + draw controls */
+.seelevel-zone-panel {
+  margin-top: 7px;
+}
+.seelevel-region-select {
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
 .seelevel-footer__info {
   margin-left: auto;
   font-size: 11px;

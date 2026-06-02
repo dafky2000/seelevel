@@ -16,6 +16,33 @@ export interface BBox {
   ne_lng: number;
 }
 
+// A zone is a multipolygon: one or more disjoint parts, each an outer ring with
+// zero or more holes. A hand-drawn zone is exactly one part with no holes; a
+// predefined region may have many parts (islands) and holes. All coords [lat,lng].
+export interface ZonePart {
+  outer: [number, number][];
+  holes: [number, number][][];
+}
+export type ZoneShape = ZonePart[];
+
+// One selectable Nova Scotia municipal boundary, generated at build time into
+// src/panel/data/ns-municipalities.json and bundled into the panel.
+export type RegionType =
+  | "Regional Municipality"
+  | "Municipal County"
+  | "Municipal District"
+  | "Town";
+
+export interface RegionRecord {
+  id: string; // stable slug, e.g. "halifax-regional-municipality"
+  name: string; // NAME
+  fullName: string; // FullName
+  type: RegionType; // FeatDesc
+  county: string; // County label
+  bbox: BBox; // for the map pan
+  shape: ZoneShape; // simplified multipolygon
+}
+
 export interface ListingRow {
   id: string;
   listing_id: string;
@@ -61,7 +88,8 @@ export type ContentToPanel =
     kind: ListingKind;
     status: SearchStatus;
   }
-  | { type: "zone"; polygon: [number, number][] | null }
+  | { type: "zone"; shape: ZoneShape | null }
+  | { type: "draw_state"; drawing: boolean }
   | { type: "viewport_bbox"; bbox: BBox }
   | { type: "clear_session" }
   | { type: "oversize_bbox"; bbox: BBox; count: number }
@@ -71,12 +99,12 @@ export type ContentToPanel =
 // a PanelUp envelope by the panel before delivery to the SW broker).
 export type PanelToContent =
   | { type: "clear_zone" }
-  | { type: "zone_prompt"; active: boolean }
-  // Dev-only (parity harness): drive the page's map / zone. Only ever SENT by
-  // the __DEV__-gated panel hooks and only HANDLED by __DEV__-gated relay code,
-  // so --prod strips every producer and consumer even though the type remains.
-  | { type: "drive_viewport"; bbox: BBox }
-  | { type: "drive_zone"; polygon: [number, number][] };
+  | { type: "begin_draw" }
+  | { type: "cancel_draw" }
+  | { type: "show_zone"; shape: ZoneShape }
+  // Pan the page map to a bbox (region select). Promoted from the dev parity
+  // harness; now a product feature, handled in both relays + the maps hook.
+  | { type: "drive_viewport"; bbox: BBox };
 
 // ─── Port wire envelopes (chrome.runtime.connect transport) ────────────────
 // Each tab's content script opens a "relay" port to the SW. The side panel
@@ -109,7 +137,9 @@ export interface TabStore {
   viewportListings: ListingRow[] | null; // verbatim search result (search mode); null otherwise
   viewportBbox: BBox | null; // live map bounds - filters session for non-search modes
   fetchedBboxes: BBox[]; // accumulated request bounds - for zone coverage
-  polygon: [number, number][] | null; // the drawn zone - the zone filter
+  zone: ZoneShape | null; // the active zone (custom draw or region) - the filter
+  selectedRegionId: string | null; // picked region id, or null for custom/none
+  drawing: boolean; // a custom draw is in progress (drives the panel button)
   scope: ScopeKey;
   searchStatus: SearchStatus; // last explicit search filter - hides the irrelevant series
   windowSize: WindowSize;
@@ -135,7 +165,9 @@ export function defaultTabStore(tabId: number): TabStore {
     viewportListings: null,
     viewportBbox: null,
     fetchedBboxes: [],
-    polygon: null,
+    zone: null,
+    selectedRegionId: null,
+    drawing: false,
     scope: "viewport",
     searchStatus: "any",
     windowSize: "monthly",

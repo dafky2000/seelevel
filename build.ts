@@ -1,12 +1,26 @@
 import * as esbuild from "npm:esbuild@0.24";
 import { denoPlugins } from "jsr:@luca/esbuild-deno-loader@0.11";
 import { join } from "jsr:@std/path@1";
+import { exists } from "jsr:@std/fs@1";
 
 const dir = new URL(".", import.meta.url).pathname;
 const manifest = JSON.parse(
   await Deno.readTextFile(join(dir, "manifest.json")),
 );
 const version = manifest.version as string;
+
+// Boundary data: generated once and committed. Re-fetch only when explicitly
+// asked (--refresh-boundaries) or when the committed artifact is missing, so
+// normal/--prod/--package builds stay offline and need no Socrata secrets.
+const boundaryJson = join(dir, "src/panel/data/ns-municipalities.json");
+const needBoundaries = Deno.args.includes("--refresh-boundaries") ||
+  !(await exists(boundaryJson));
+if (needBoundaries) {
+  const { buildBoundaries } = await import(
+    "./scripts/boundaries/build-boundaries.ts"
+  );
+  await buildBoundaries(dir);
+}
 
 // Plugin: resolve CSS imports from npm packages as plain text strings.
 // deno-loader intercepts npm: specifiers before esbuild's native loader can

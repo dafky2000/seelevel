@@ -1,4 +1,5 @@
 import type { BBox } from "../../types.ts";
+import type { ZoneShape } from "../../types.ts";
 import { polygonArea } from "./geofence.ts";
 
 type Pt = [number, number]; // [lat, lng]
@@ -65,5 +66,29 @@ export function computeCoverage(
     const clipped = sutherlandHodgman(polygon, bboxToPolygon(bbox));
     covered += polygonArea(clipped);
   }
+  return Math.min(1, covered / total);
+}
+
+// Coverage of a multipolygon zone: net area = Σ(outer − holes) across parts;
+// covered area uses computeCoverage() per ring scaled by that ring's area.
+export function computeZoneCoverage(
+  fetchedBboxes: BBox[],
+  shape: ZoneShape,
+): number {
+  let total = 0;
+  let covered = 0;
+  for (const part of shape) {
+    const outerArea = polygonArea(part.outer);
+    let netArea = outerArea;
+    let netCovered = computeCoverage(fetchedBboxes, part.outer) * outerArea;
+    for (const hole of part.holes) {
+      const holeArea = polygonArea(hole);
+      netArea -= holeArea;
+      netCovered -= computeCoverage(fetchedBboxes, hole) * holeArea;
+    }
+    total += netArea;
+    covered += Math.max(0, netCovered);
+  }
+  if (total <= 0) return 0;
   return Math.min(1, covered / total);
 }

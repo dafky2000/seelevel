@@ -169,23 +169,20 @@ export function installGoogleMapsHook(): void {
   }
   fastPatchPoll();
 
-  // ── Dev-only: drive the map to a requested bbox (parity harness) ─────────
-  // ISOLATED relay dispatches seelevel:drive; we fitBounds the live instance.
-  // Stripped from --prod (__DEV__ === false → dead code).
-  if (typeof __DEV__ !== "undefined" && __DEV__) {
-    document.addEventListener(DRIVE_EVENT, (e) => {
-      const d = (e as CustomEvent<{ bbox: BBox }>).detail;
-      if (!d?.bbox || !currentMap) return;
-      try {
-        currentMap.fitBounds?.({
-          north: d.bbox.ne_lat,
-          south: d.bbox.sw_lat,
-          east: d.bbox.ne_lng,
-          west: d.bbox.sw_lng,
-        });
-      } catch { /* never break the page */ }
-    });
-  }
+  // Drive the map to a requested bbox — region pan from the Zone tab (and the
+  // dev parity harness). The ISOLATED relay dispatches seelevel:drive.
+  document.addEventListener(DRIVE_EVENT, (e) => {
+    const d = (e as CustomEvent<{ bbox: BBox }>).detail;
+    if (!d?.bbox || !currentMap) return;
+    try {
+      currentMap.fitBounds?.({
+        north: d.bbox.ne_lat,
+        south: d.bbox.sw_lat,
+        east: d.bbox.ne_lng,
+        west: d.bbox.sw_lng,
+      });
+    } catch { /* never break the page */ }
+  });
 
   // ── Is the held instance still a live, attached map? ─────────────────────
   function isAlive(m: AnyObj | null): boolean {

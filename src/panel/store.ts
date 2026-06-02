@@ -1,4 +1,4 @@
-import { pointInPolygon } from "./lib/geofence.ts";
+import { pointInMultiPolygon } from "./lib/geofence.ts";
 import type { ListingRow, PropertyRow, ScopeKey, TabStore } from "../types.ts";
 export { defaultTabStore } from "../types.ts";
 
@@ -45,7 +45,7 @@ export function mergeListings(
 // zone = session ∩ polygon. viewport = the verbatim search result in search
 // mode, otherwise session ∩ the live map bounds.
 export function scopedListings(store: TabStore): ListingRow[] {
-  const { scope, session, viewportListings, viewportBbox, polygon } = store;
+  const { scope, session, viewportListings, viewportBbox, zone } = store;
   if (scope === "viewport") {
     // Search mode: the result set is already geo-filtered server-side - verbatim.
     if (viewportListings !== null) return viewportListings;
@@ -59,12 +59,11 @@ export function scopedListings(store: TabStore): ListingRow[] {
     );
   }
   if (scope === "zone") {
-    // No zone drawn yet → nothing is "in the zone" (the panel shows a prompt).
-    if (!polygon) return [];
+    if (!zone) return [];
     return session.filter(
       (l) =>
         l.lat !== null && l.lng !== null &&
-        pointInPolygon(l.lat!, l.lng!, polygon),
+        pointInMultiPolygon(l.lat!, l.lng!, zone),
     );
   }
   return session; // session scope - everything accumulated

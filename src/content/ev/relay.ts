@@ -9,17 +9,17 @@ import type {
   SearchStatus,
 } from "../../types.ts";
 import {
+  beginDraw,
+  cancelDraw,
   clearZone,
-  getCurrentPolygon,
+  getCurrentShape,
   initGeofenceOverlay,
-  setDrawPrompt,
+  setOnDrawStateChange,
   setOnZoneChange,
   setOverlayVisible,
-  setZone,
+  showZone,
   syncMapView,
 } from "../geofence-overlay.ts";
-
-declare const __DEV__: boolean;
 
 let lastBbox: BBox | null = null;
 let lastOversize: { bbox: BBox; count: number } | null = null;
@@ -46,22 +46,15 @@ function openPort(): chrome.runtime.Port {
       return;
     }
     if (msg.type === "msg") {
-      if (msg.payload.type === "zone_prompt") {
-        setDrawPrompt(msg.payload.active);
-      } else if (msg.payload.type === "clear_zone") {
-        clearZone();
-      } else if (
-        typeof __DEV__ !== "undefined" && __DEV__ &&
-        msg.payload.type === "drive_viewport"
-      ) {
+      const p = msg.payload;
+      if (p.type === "clear_zone") clearZone();
+      else if (p.type === "begin_draw") beginDraw();
+      else if (p.type === "cancel_draw") cancelDraw();
+      else if (p.type === "show_zone") showZone(p.shape);
+      else if (p.type === "drive_viewport") {
         document.dispatchEvent(
-          new CustomEvent(DRIVE_EVENT, { detail: { bbox: msg.payload.bbox } }),
+          new CustomEvent(DRIVE_EVENT, { detail: { bbox: p.bbox } }),
         );
-      } else if (
-        typeof __DEV__ !== "undefined" && __DEV__ &&
-        msg.payload.type === "drive_zone"
-      ) {
-        setZone(msg.payload.polygon);
       }
     }
   });
@@ -96,7 +89,7 @@ function emit(payload: ContentToPanel): void {
 
 function reEmit(): void {
   if (lastBbox) emit({ type: "viewport_bbox", bbox: lastBbox });
-  emit({ type: "zone", polygon: getCurrentPolygon() });
+  emit({ type: "zone", shape: getCurrentShape() });
   emit({ type: "loading_state", loading: lastLoading });
   if (lastOversize) {
     emit({
@@ -175,7 +168,7 @@ document.addEventListener(EVT.listings, (e) => {
     kind: detail.kind,
     status: detail.status,
   });
-  emit({ type: "zone", polygon: getCurrentPolygon() });
+  emit({ type: "zone", shape: getCurrentShape() });
 });
 
 document.addEventListener(EVT.oversize, (e) => {
@@ -199,5 +192,6 @@ document.addEventListener(EVT.clearSession, () => {
 });
 
 // Zone overlay — same wiring as ViewPoint relay.
-setOnZoneChange((polygon) => emit({ type: "zone", polygon }));
+setOnZoneChange((shape) => emit({ type: "zone", shape }));
+setOnDrawStateChange((drawing) => emit({ type: "draw_state", drawing }));
 initGeofenceOverlay();

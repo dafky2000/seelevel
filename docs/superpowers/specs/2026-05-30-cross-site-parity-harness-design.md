@@ -1,7 +1,6 @@
 # Cross-site parity harness (EV ↔ ViewPoint)
 
-Date: 2026-05-30
-Status: design approved, pending implementation plan
+Date: 2026-05-30 Status: design approved, pending implementation plan
 
 ## Problem
 
@@ -12,13 +11,13 @@ area and filter, because they draw on the same underlying MLS. We want a way to
 verify that on demand: drive both sites to the same viewport/zone + filter, then
 compare the rolled-up numbers.
 
-The shared `aggregate()` path already guarantees the *logic* is identical for
+The shared `aggregate()` path already guarantees the _logic_ is identical for
 both sites. The remaining risk is at the edges: the per-site parse layer, the
 scope layer, and — most of all — whether the live sites actually return
 equivalent data for the same area. That last part is inherently live, so this is
-**not** a deterministic CI test of the sites. Instead we make the *comparison
-logic* pure and unit-tested, and capture the live numbers through a dev-only hook
-driven by a documented Chrome DevTools procedure.
+**not** a deterministic CI test of the sites. Instead we make the _comparison
+logic_ pure and unit-tested, and capture the live numbers through a dev-only
+hook driven by a documented Chrome DevTools procedure.
 
 ## Goals
 
@@ -44,8 +43,8 @@ driven by a documented Chrome DevTools procedure.
 ## Parity target
 
 Aggregate parity within an (eventual) tolerance. We compare rolled-up figures,
-not individual listings. Both sites expose the MLS number as `listing_id`, but we
-deliberately do not require set equality — coverage between an IDX feed and a
+not individual listings. Both sites expose the MLS number as `listing_id`, but
+we deliberately do not require set equality — coverage between an IDX feed and a
 brokerage site legitimately differs.
 
 ## Architecture
@@ -64,12 +63,12 @@ window.__seelevelSnapshot(): ParitySnapshot[]
 ```ts
 interface ParitySnapshot {
   tabId: number;
-  host: string | null;          // "viewpoint.ca" | "...engelvoelkersnovascotia.com"
-  scope: ScopeKey;              // viewport | session | zone
-  searchStatus: SearchStatus;   // any | active | sold
+  host: string | null; // "viewpoint.ca" | "...engelvoelkersnovascotia.com"
+  scope: ScopeKey; // viewport | session | zone
+  searchStatus: SearchStatus; // any | active | sold
   windowSize: WindowSize;
-  loading: boolean;             // a slim sibling / page fetch is in flight
-  bbox: BBox | null;            // to confirm the two viewports line up
+  loading: boolean; // a slim sibling / page fetch is in flight
+  bbox: BBox | null; // to confirm the two viewports line up
   polygon: [number, number][] | null;
   figures: ParityFigures;
 }
@@ -85,10 +84,10 @@ panel shows.
 
 ```ts
 interface ParityFigures {
-  scopedCount: number;        // listings in scope, any status (whole scope)
-  listedCount: number;        // list-side count, latest complete bucket
-  soldCount: number;          // sold-side count, latest complete bucket
-  soldVolume: number;         // Σ sold_price, latest complete bucket
+  scopedCount: number; // listings in scope, any status (whole scope)
+  listedCount: number; // list-side count, latest complete bucket
+  soldCount: number; // sold-side count, latest complete bucket
+  soldVolume: number; // Σ sold_price, latest complete bucket
   listAvg: number | null;
   listMedian: number | null;
   soldAvg: number | null;
@@ -111,7 +110,10 @@ compareAggregates(a: ParitySnapshot, b: ParitySnapshot, tol?: Tolerance): Parity
 ```
 
 ```ts
-interface Tolerance { relPct: number; absFloor: number }
+interface Tolerance {
+  relPct: number;
+  absFloor: number;
+}
 // Loose default while we gather data; `pass` is advisory only.
 const DEFAULT_TOL: Tolerance = { relPct: 0.10, absFloor: 2 };
 // A figure "passes" if |Δ| ≤ max(absFloor, relPct · max(|a|, |b|)).
@@ -119,33 +121,33 @@ const DEFAULT_TOL: Tolerance = { relPct: 0.10, absFloor: 2 };
 
 ```ts
 interface FigureDelta {
-  key: string;                 // "soldVolume", "soldAvg", "hist:$300k–$325k", …
+  key: string; // "soldVolume", "soldAvg", "hist:$300k–$325k", …
   a: number | null;
   b: number | null;
-  absDelta: number | null;     // |a − b|, null if either side null
-  relDelta: number | null;     // absDelta / max(|a|,|b|), null if base 0/null
-  pass: boolean;               // advisory, against tol
+  absDelta: number | null; // |a − b|, null if either side null
+  relDelta: number | null; // absDelta / max(|a|,|b|), null if base 0/null
+  pass: boolean; // advisory, against tol
 }
 
 interface ParityReport {
-  aligned: boolean;            // bbox/scope/searchStatus/windowSize all match
-  alignment: {                 // why aligned is false, when it is
+  aligned: boolean; // bbox/scope/searchStatus/windowSize all match
+  alignment: { // why aligned is false, when it is
     scopeMatch: boolean;
     statusMatch: boolean;
     windowMatch: boolean;
-    bboxMatch: boolean;        // bboxes equal within an epsilon
+    bboxMatch: boolean; // bboxes equal within an epsilon
   };
-  deltas: FigureDelta[];       // every figure + every histogram bin
+  deltas: FigureDelta[]; // every figure + every histogram bin
 }
 ```
 
 Histogram bins are compared by **label** (the `$25k`-step / capped-tail labels
-are deterministic for a given data range). A bin present on only one side appears
-as a delta with the missing side `null` and `pass:false`.
+are deterministic for a given data range). A bin present on only one side
+appears as a delta with the missing side `null` and `pass:false`.
 
 `aligned` is reported first because a parity gap most often means the two
-viewports were not actually lined up; the report says so before any figure
-delta is interpreted.
+viewports were not actually lined up; the report says so before any figure delta
+is interpreted.
 
 ## Driving the maps (dev-gated)
 
@@ -162,9 +164,9 @@ therefore one uniform code path — no per-adapter map-driving code.
 2. Panel sends a dev-only downward message `{ type: "drive_viewport", bbox }` →
    SW → target relay, over the existing `PanelToContent` port path that already
    carries `clear_zone` / `zone_prompt`.
-3. Target relay dispatches a MAIN-world `seelevel:drive` CustomEvent
-   (ISOLATED → MAIN over the shared DOM — the reverse of the existing
-   `seelevel:bbox` flow; `detail` is a plain object and structured-clones fine).
+3. Target relay dispatches a MAIN-world `seelevel:drive` CustomEvent (ISOLATED →
+   MAIN over the shared DOM — the reverse of the existing `seelevel:bbox` flow;
+   `detail` is a plain object and structured-clones fine).
 4. The shared google-maps-hook listens for `seelevel:drive` and calls
    `currentMap.fitBounds({north,south,east,west})`. The map's own `idle` →
    `emitBbox` → the page's natural fetch chain then runs exactly as if the user
@@ -174,17 +176,17 @@ therefore one uniform code path — no per-adapter map-driving code.
 ### Zone sync
 
 ISOLATED-only. Target relay receives `{ type: "drive_zone", polygon }` and calls
-a new `setZone(polygon)` on the geofence overlay, which renders the Leaflet/Geoman
-polygon and fires the existing `onZoneChange` → the target store's `polygon`
-updates. When `what` includes `"zone"`, `__seelevelSync` first drives the target
-viewport to the polygon's bounding box so the page fetches the area the zone
-covers, then sends `drive_zone`.
+a new `setZone(polygon)` on the geofence overlay, which renders the
+Leaflet/Geoman polygon and fires the existing `onZoneChange` → the target
+store's `polygon` updates. When `what` includes `"zone"`, `__seelevelSync` first
+drives the target viewport to the polygon's bounding box so the page fetches the
+area the zone covers, then sends `drive_zone`.
 
 ### The "button"
 
-The hook call is the button. The DevTools procedure calls `__seelevelSync`, waits
-for the target to settle (`wait_for` / poll `__seelevelSnapshot()` until the
-target tab's `bbox` matches the driven bbox and `loading` is false), then
+The hook call is the button. The DevTools procedure calls `__seelevelSync`,
+waits for the target to settle (`wait_for` / poll `__seelevelSnapshot()` until
+the target tab's `bbox` matches the driven bbox and `loading` is false), then
 captures both snapshots and runs `compareAggregates`.
 
 ## Compliance — the load-bearing gating
@@ -216,14 +218,14 @@ also cause — on EV, the same one documented sibling `get-listing` per resolve.
 - `src/panel/App.tsx` — `if (__DEV__)` install `window.__seelevelSnapshot` and
   `window.__seelevelSync` (reading the tab-store map; sending `drive_*`).
 - `src/content/relay.ts` + `src/content/ev/relay.ts` — `if (__DEV__)` handlers
-  for `drive_viewport` (→ `seelevel:drive` CustomEvent) and `drive_zone`
-  (→ overlay `setZone`).
+  for `drive_viewport` (→ `seelevel:drive` CustomEvent) and `drive_zone` (→
+  overlay `setZone`).
 - `src/content/shared/google-maps-hook.ts` — `if (__DEV__)` listener for
   `seelevel:drive` that calls `currentMap.fitBounds`.
 - `src/content/geofence-overlay.ts` — add `setZone(polygon)` matching the
   module's existing Leaflet/Geoman patterns.
-- `src/types.ts` — add dev-only `PanelToContent` variants `drive_viewport`
-  / `drive_zone`, and a `seelevel:drive` entry in `EVT`.
+- `src/types.ts` — add dev-only `PanelToContent` variants `drive_viewport` /
+  `drive_zone`, and a `seelevel:drive` entry in `EVT`.
 - `build.ts` — add the `__DEV__` define to all four bundles; add a
   `declare const __DEV__: boolean` ambient declaration.
 
@@ -231,11 +233,12 @@ also cause — on EV, the same one documented sibling `get-listing` per resolve.
 
 1. Open a ViewPoint `/map` tab and an EV `/map` tab; open the side panel.
 2. Pan/zoom each map roughly to the target area so each page begins fetching.
-3. Pick scope + status filter + window in the panel (or draw a zone on one site).
+3. Pick scope + status filter + window in the panel (or draw a zone on one
+   site).
 4. `select_page` → the panel page.
 5. `evaluate_script: __seelevelSync({ from: <viewpoint tabId>, to: <ev tabId>, what: "both" })`.
-6. `wait_for` / poll `__seelevelSnapshot()` until the EV tab's `bbox` matches the
-   driven bbox and its `loading` is false.
+6. `wait_for` / poll `__seelevelSnapshot()` until the EV tab's `bbox` matches
+   the driven bbox and its `loading` is false.
 7. `evaluate_script: __seelevelSnapshot()` → both snapshots.
 8. Run `compareAggregates(viewpointSnap, evSnap)` and print the report —
    `aligned` first, then the delta table.
@@ -244,8 +247,8 @@ also cause — on EV, the same one documented sibling `get-listing` per resolve.
 
 - Unit tests for the pure core (`parity.test.ts`) — see Files.
 - A live run across 2–3 real Nova Scotia areas (e.g. central Halifax for-sale,
-  then sold) to observe where the numbers actually land. That data is what we use
-  to settle the tolerance — at which point `pass` graduates from advisory to a
-  recorded threshold in this doc.
+  then sold) to observe where the numbers actually land. That data is what we
+  use to settle the tolerance — at which point `pass` graduates from advisory to
+  a recorded threshold in this doc.
 - Full suite + a `--prod` build to confirm the harness is fully stripped (grep
   the prod bundles for `__seelevelSnapshot` / `seelevel:drive` → no matches).
