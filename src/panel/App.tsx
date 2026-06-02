@@ -2,6 +2,7 @@
 import { h, render } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type {
+  BBox,
   MetricKey,
   PanelDown,
   PanelToContent,
@@ -31,7 +32,11 @@ import { EmptyState } from "./components/EmptyState.tsx";
 import { Disclaimer } from "./components/Disclaimer.tsx";
 import { OversizeNotice } from "./components/OversizeNotice.tsx";
 import { Spinner } from "./components/Spinner.tsx";
-import type { AggregateSummary } from "./lib/aggregate.ts";
+import type { AggregateSummary, SeriesSide } from "./lib/aggregate.ts";
+import { buildFigures } from "./lib/parity.ts";
+import type { ParitySnapshot } from "./lib/parity.ts";
+
+declare const __DEV__: boolean;
 
 // Every metric is shown at once, stacked into one scrolling list - no tabs.
 const METRICS: { key: MetricKey; label: string }[] = [
@@ -46,6 +51,50 @@ interface MetricSection {
   metric: MetricKey;
   label: string;
   summary: AggregateSummary;
+}
+
+// Bounding box of a polygon — used to drive the target map far enough to cover
+// a synced zone before applying it.
+function polygonBbox(poly: [number, number][]): BBox {
+  const lats = poly.map((p) => p[0]);
+  const lngs = poly.map((p) => p[1]);
+  return {
+    sw_lat: Math.min(...lats),
+    sw_lng: Math.min(...lngs),
+    ne_lat: Math.max(...lats),
+    ne_lng: Math.max(...lngs),
+  };
+}
+
+// Build a ParitySnapshot for one tab's store — mirrors the panel's own
+// scope/window/side selection so the snapshot matches what's on screen.
+function buildSnapshot(store: TabStore): ParitySnapshot {
+  const visible = scopedListings(store);
+  const buckets = buildBuckets(
+    new Date(),
+    store.windowSize,
+    store.alignmentMode,
+    store.anchorDayOfWeek,
+    store.anchorDayOfMonth,
+  );
+  // Array form of the render path's `side` (which wraps as `side ? [side]
+  // : null` at its priceHistogram call) — buildFigures takes SeriesSide[].
+  const side: SeriesSide[] | null = store.searchStatus === "active"
+    ? ["list"]
+    : store.searchStatus === "sold"
+    ? ["sold"]
+    : null;
+  return {
+    tabId: store.tabId,
+    host: store.host,
+    scope: store.scope,
+    searchStatus: store.searchStatus,
+    windowSize: store.windowSize,
+    loading: store.loading,
+    bbox: store.viewportBbox,
+    polygon: store.polygon,
+    figures: buildFigures(visible, buckets, side),
+  };
 }
 
 function App() {
@@ -229,6 +278,76 @@ function App() {
       port.postMessage({ type: "msg", tabId, payload } satisfies PanelUp);
     } catch { /* port disconnected */ }
   }, []);
+
+  // Dev-only parity harness: expose capture + sync hooks on the panel window.
+  // The whole block is gated so --prod (__DEV__ === false) strips it entirely.
+  useEffect(() => {
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      const w = window as unknown as {
+        __seelevelSnapshot?: () => ParitySnapshot[];
+        __seelevelSync?: (
+          opts?: {
+            from?: number;
+            to?: number;
+            what?: "viewport" | "zone" | "both";
+          },
+        ) => unknown;
+      };
+
+      w.__seelevelSnapshot = () =>
+        Array.from(tabStores.current.values()).map(buildSnapshot);
+
+      w.__seelevelSync = (opts = {}) => {
+        const stores = Array.from(tabStores.current.values());
+        const find = (kw: string) =>
+          stores.find((s) => (s.host ?? "").includes(kw));
+        const fromStore = opts.from !== undefined
+          ? tabStores.current.get(opts.from)
+          : find("viewpoint");
+        const toStore = opts.to !== undefined
+          ? tabStores.current.get(opts.to)
+          : find("engelvoelkers");
+        if (!fromStore || !toStore) {
+          return {
+            error: "need one ViewPoint and one EV tab open (or pass {from,to})",
+          };
+        }
+        const what = opts.what ?? "both";
+        const result: Record<string, unknown> = {
+          from: fromStore.tabId,
+          to: toStore.tabId,
+          what,
+        };
+        if (
+          (what === "viewport" || what === "both") && fromStore.viewportBbox
+        ) {
+          postToRelay(toStore.tabId, {
+            type: "drive_viewport",
+            bbox: fromStore.viewportBbox,
+          });
+          result.bbox = fromStore.viewportBbox;
+        }
+        if ((what === "zone" || what === "both") && fromStore.polygon) {
+          // Drive the target far enough to cover the zone, then apply the zone.
+          postToRelay(toStore.tabId, {
+            type: "drive_viewport",
+            bbox: polygonBbox(fromStore.polygon),
+          });
+          postToRelay(toStore.tabId, {
+            type: "drive_zone",
+            polygon: fromStore.polygon,
+          });
+          result.polygon = fromStore.polygon;
+        }
+        return result;
+      };
+
+      return () => {
+        delete w.__seelevelSnapshot;
+        delete w.__seelevelSync;
+      };
+    }
+  }, [postToRelay]);
 
   // Clean up tab stores when tabs are closed
   useEffect(() => {

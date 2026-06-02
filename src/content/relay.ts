@@ -12,7 +12,7 @@ import type {
   RelayDown,
   RelayUp,
 } from "../types.ts";
-import { EVT } from "../types.ts";
+import { DRIVE_EVENT, EVT } from "../types.ts";
 import {
   clearZone,
   getCurrentPolygon,
@@ -20,8 +20,11 @@ import {
   setDrawPrompt,
   setOnZoneChange,
   setOverlayVisible,
+  setZone,
   syncMapView,
 } from "./geofence-overlay.ts";
+
+declare const __DEV__: boolean;
 
 let lastBbox: BBox | null = null;
 let lastNewTodayRaw = ""; // last seen localStorage["vp.new_today"] payload
@@ -65,6 +68,18 @@ function openPort(): chrome.runtime.Port {
         setDrawPrompt(msg.payload.active);
       } else if (msg.payload.type === "clear_zone") {
         clearZone();
+      } else if (
+        typeof __DEV__ !== "undefined" && __DEV__ &&
+        msg.payload.type === "drive_viewport"
+      ) {
+        document.dispatchEvent(
+          new CustomEvent(DRIVE_EVENT, { detail: { bbox: msg.payload.bbox } }),
+        );
+      } else if (
+        typeof __DEV__ !== "undefined" && __DEV__ &&
+        msg.payload.type === "drive_zone"
+      ) {
+        setZone(msg.payload.polygon);
       }
     }
   });

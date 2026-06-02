@@ -81,6 +81,10 @@ const shared: esbuild.BuildOptions = {
     ...denoPlugins({ configPath: join(dir, "deno.json") }),
   ],
   loader: { ".css": "text" },
+  // Dev-only harness gating: true for dev builds, false for --prod/--package.
+  // esbuild substitutes the literal, so `if (__DEV__)` blocks are
+  // dead-code-eliminated from the packaged build.
+  define: { __DEV__: JSON.stringify(!isProd) },
 };
 
 await Promise.all([
@@ -109,7 +113,10 @@ await Promise.all([
     format: "iife",
     jsx: "automatic",
     jsxImportSource: "preact",
-    define: { __EXT_VERSION__: JSON.stringify(version) },
+    define: {
+      __DEV__: JSON.stringify(!isProd),
+      __EXT_VERSION__: JSON.stringify(version),
+    },
   }),
   esbuild.build({
     ...shared,

@@ -71,7 +71,12 @@ export type ContentToPanel =
 // a PanelUp envelope by the panel before delivery to the SW broker).
 export type PanelToContent =
   | { type: "clear_zone" }
-  | { type: "zone_prompt"; active: boolean };
+  | { type: "zone_prompt"; active: boolean }
+  // Dev-only (parity harness): drive the page's map / zone. Only ever SENT by
+  // the __DEV__-gated panel hooks and only HANDLED by __DEV__-gated relay code,
+  // so --prod strips every producer and consumer even though the type remains.
+  | { type: "drive_viewport"; bbox: BBox }
+  | { type: "drive_zone"; polygon: [number, number][] };
 
 // ─── Port wire envelopes (chrome.runtime.connect transport) ────────────────
 // Each tab's content script opens a "relay" port to the SW. The side panel
@@ -155,3 +160,8 @@ export const EVT = {
   clearSession: "seelevel:clear-session",
   loadingState: "seelevel:loading-state",
 } as const;
+
+// Dev-only (parity harness) ISOLATED→MAIN drive event name. A standalone export
+// (not an EVT property) so esbuild tree-shakes it out of --prod entirely once
+// the only references — all inside __DEV__ blocks — are dead-code-eliminated.
+export const DRIVE_EVENT = "seelevel:drive";

@@ -444,6 +444,23 @@ export function getCurrentPolygon(): [number, number][] | null {
   return (drawnLayer.getLatLngs()[0] as L.LatLng[]).map((p) => [p.lat, p.lng]);
 }
 
+// Programmatically render a zone polygon (parity harness drive_zone). Reuses
+// onPolygonCreated so the synced zone behaves exactly like a hand-drawn one —
+// styled, editable, and propagated to the panel via onZoneChange.
+export function setZone(polygon: [number, number][]): void {
+  if (!leafletMap || polygon.length < 3) return;
+  if (drawing) endDraw(false);
+  if (drawnLayer) {
+    leafletMap.removeLayer(drawnLayer);
+    drawnLayer = null;
+  }
+  const poly = L.polygon(
+    polygon.map(([lat, lng]) => [lat, lng] as L.LatLngTuple),
+  );
+  poly.addTo(leafletMap);
+  onPolygonCreated(poly);
+}
+
 // Coverage % is shown in the side panel - no map overlay rectangles needed.
 // deno-lint-ignore no-unused-vars
 export function updateCoverageOverlay(_fetchedBboxes: BBox[]): void {}
