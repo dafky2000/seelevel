@@ -9,10 +9,12 @@ All notable changes to SeeLevel are documented here.
 - **Multi-site support — Engel & Völkers Nova Scotia.** SeeLevel now runs on
   `engelvoelkersnovascotia.com/map` in addition to `viewpoint.ca/map`, sharing
   the same side panel, scopes, charts, and zone tool. A site-specific adapter (a
-  MAIN-world entry, an ISOLATED relay, and a RESO row parser) observes the
-  listings the page already fetches, while the shared `google.maps.Map`
-  constructor hook drives the map bounds and geofence overlay on both sites. The
-  footer disclaimer is now site-aware.
+  MAIN-world entry, an ISOLATED relay, and a RESO row parser) feeds the panel,
+  while the shared `google.maps.Map` constructor hook drives the map bounds and
+  geofence overlay on both sites. On ViewPoint it stays a pure passive observer;
+  on Engel & Völkers it issues one small filtered request per map resolve
+  (pan/zoom), reusing the page's existing session, for complete viewport
+  coverage. The footer disclaimer and CSV attribution are now site-aware.
 - **Price distribution histogram.** A new chart beneath the Volume section plots
   price on the x-axis and listing count on the y-axis for the most recent
   complete window, with List (teal) and Sold (amber) overlaid. The dense sub-$1M

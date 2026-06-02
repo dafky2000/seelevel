@@ -16,8 +16,13 @@ import { parseEvListing } from "./parse.ts";
 const API_URL =
   "https://dev-api.engelvoelkersnovascotia.com/api/v1/property/get-listing";
 const THRESHOLD = 2000;
+// ClosedPrice is null on most closed rows; PurchasePrice carries the same
+// transacted price and fills the gap. CloseDate is the actual closing date used
+// as sold_dt (see parseEvListing). ModificationTimestamp is unused by the parser
+// but MUST stay in the projection: the server sorts by it, and a sortBy column
+// absent from `fields` makes the query 500 ("column ... does not exist").
 const SLIM_FIELDS =
-  "id,MlsStatus,StandardStatus,ListPrice,ClosedPrice,ListingContractDate,ModificationTimestamp,BuildingAreaTotal,Latitude,Longitude";
+  "id,MlsStatus,StandardStatus,ListPrice,ClosedPrice,PurchasePrice,ListingContractDate,CloseDate,ModificationTimestamp,BuildingAreaTotal,Latitude,Longitude";
 
 let lastFiredKey: string | null = null;
 let lastFilterKey: string | null = null;

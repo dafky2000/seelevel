@@ -15,8 +15,19 @@ function formatValue(v: number | null, metric: MetricKey): string {
   return v.toFixed(2);
 }
 
+// The export credits whichever site the data was observed on.
+function attributionLine(host: string | null): string {
+  if (host === "engelvoelkersnovascotia.com") {
+    return `# Source: Engel & Völkers Nova Scotia (NSAR MLS® System). For personal use only.`;
+  }
+  return `# Source: ViewPoint.ca (NSAR MLS® System and Province of Nova Scotia). For personal use only.`;
+}
+
 export function ExportButton(
-  { sections }: { sections: ExportSection[] | null },
+  { sections, host }: {
+    sections: ExportSection[] | null;
+    host?: string | null;
+  },
 ) {
   const ready = !!sections && sections.length > 0;
 
@@ -39,7 +50,7 @@ export function ExportButton(
     }
 
     const rows: string[] = [
-      `# Source: ViewPoint.ca (NSAR MLS® System and Province of Nova Scotia). For personal use only.`,
+      attributionLine(host ?? null),
       `# Generated: ${new Date().toISOString()}`,
       header.join(","),
     ];

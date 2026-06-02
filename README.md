@@ -10,9 +10,11 @@ ViewPoint.ca and Engel & Völkers Nova Scotia into price, volume, days-on-market
 list-to-sold and price-per-sqft trends - a clear, calm read on the Nova Scotia
 market. Personal, non-commercial use only.
 
-It is a passive observer: every byte it processes is one your browser was
-already going to fetch. No new requests. No scraping. No telemetry. Close the
-side panel and the data is gone.
+On ViewPoint.ca it is a pure passive observer: every byte it processes is one
+your browser was already going to fetch. On Engel & Völkers it adds one small
+filtered request per map resolve (pan/zoom), reusing your existing session, to
+get complete viewport coverage - and nothing more. No scraping, no telemetry;
+close the side panel and the data is gone.
 
 ---
 
@@ -214,7 +216,7 @@ The load-bearing implementation choices, lifted from the initial commit message:
 
 That's the entire `permissions` list. No `host_permissions` key either. Access
 to each site is granted by `content_scripts.matches` (`*://*.viewpoint.ca/map*`
-and `https://engelvoelkersnovascotia.com/*`), which is the same install-time UX
+and `*://*.engelvoelkersnovascotia.com/map*`), which is the same install-time UX
 as `host_permissions` would be ("Read and modify data on this site") but doesn't
 trigger Chrome Web Store's "Limited Host Use" in-depth review path.
 
@@ -257,11 +259,12 @@ For architectural detail beyond what's here, see [`CLAUDE.md`](CLAUDE.md)
 
 ---
 
-## Respect for ViewPoint
+## Respect for the sites
 
 This extension is built as a passive observer of data the browser already
-received. It is not a scraper, not a crawler, and makes no requests of its own
-to viewpoint.ca. The specific cautions baked into the code:
+received. It is not a scraper and not a crawler. On ViewPoint it makes no
+requests of its own; on Engel & Völkers it makes exactly one small filtered
+request per map resolve (see below). The specific cautions baked into the code:
 
 - **Read-only XHR observation.** `open` and `send` are wrapped, but arguments
   are forwarded verbatim. The patches are wrapped in try/catch so a bug here can
@@ -269,9 +272,15 @@ to viewpoint.ca. The specific cautions baked into the code:
   `setTimeout(…, 0)` so the page's own load handlers run to completion before we
   touch anything. Patched functions also mask `name` / `length` / `toString` to
   mirror the native originals - we don't want to look like we're tampering.
-- **No request generation.** The extension never issues XHR or fetch to
-  ViewPoint endpoints. Every byte it processes is one the user's browser was
-  already going to fetch as part of normal browsing.
+- **ViewPoint: no request generation.** On viewpoint.ca the extension never
+  issues XHR or fetch to ViewPoint endpoints. Every byte it processes is one the
+  user's browser was already going to fetch as part of normal browsing.
+- **Engel & Völkers: one extra request per map resolve.** EV's map XHR returns
+  only a page of results, so for complete viewport coverage the adapter fires a
+  single slim `get-listing` request each time the map settles (pan/zoom),
+  reusing the page's existing auth session and requesting a minimal field set.
+  It is deduped and at-most-one-in-flight, never retried on error, and issues no
+  request until the map has settled on a viewport. No other request paths exist.
 - **Non-2xx responses are dropped.** The HTTP 400 "Too many search results"
   error returned when the map is zoomed too far out is never treated as
   listings, so its bbox can't falsely count toward zone coverage.

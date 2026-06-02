@@ -21,7 +21,7 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
         }}
       >
         Personal, non-commercial use only. Commercial or professional users must
-        contact ViewPoint.ca directly before use.
+        contact ViewPoint.ca or Engel & Völkers directly before use.
       </p>
       <p
         style={{

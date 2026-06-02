@@ -34,6 +34,7 @@ Deno.test("parseEvListing — closed sold listing", () => {
     ListPrice: "549900",
     ClosedPrice: "530000",
     ListingContractDate: "2025-02-25",
+    CloseDate: "2025-07-11T00:00:00.000Z",
     ModificationTimestamp: "2025-07-11T14:46:57.800Z",
     BuildingAreaTotal: "2100",
     Latitude: "44.65",
@@ -42,8 +43,47 @@ Deno.test("parseEvListing — closed sold listing", () => {
   assertEquals(row.status_id, 2);
   assertEquals(row.list_price, 549900);
   assertEquals(row.sold_price, 530000);
-  assertEquals(row.sold_dt, "2025-07-11T14:46:57.800Z");
-  assertEquals(row.close_dt, "2025-07-11T14:46:57.800Z");
+  // sold_dt/close_dt come from CloseDate (the actual closing date), not the
+  // modification timestamp, and are normalised to the calendar date.
+  assertEquals(row.sold_dt, "2025-07-11");
+  assertEquals(row.close_dt, "2025-07-11");
+});
+
+Deno.test("parseEvListing — sold price falls back to PurchasePrice", () => {
+  // EV leaves ClosedPrice null on ~63% of closed rows; the same transacted
+  // price is carried in PurchasePrice, which we use as the fallback.
+  const row = parseEvListing({
+    id: "abc-2b",
+    MlsStatus: "SOLD",
+    StandardStatus: "Closed",
+    ListPrice: "549900",
+    ClosedPrice: null,
+    PurchasePrice: "530000",
+    ListingContractDate: "2025-02-25",
+    ModificationTimestamp: "2025-07-11T14:46:57.800Z",
+    BuildingAreaTotal: "2100",
+    Latitude: "44.65",
+    Longitude: "-63.6",
+  });
+  assertEquals(row.status_id, 2);
+  assertEquals(row.sold_price, 530000);
+});
+
+Deno.test("parseEvListing — ClosedPrice wins when both are present", () => {
+  const row = parseEvListing({
+    id: "abc-2c",
+    MlsStatus: "SOLD",
+    StandardStatus: "Closed",
+    ListPrice: "549900",
+    ClosedPrice: "530000",
+    PurchasePrice: "999999",
+    ListingContractDate: "2025-02-25",
+    ModificationTimestamp: "2025-07-11T14:46:57.800Z",
+    BuildingAreaTotal: "2100",
+    Latitude: "44.65",
+    Longitude: "-63.6",
+  });
+  assertEquals(row.sold_price, 530000);
 });
 
 Deno.test("parseEvListing — pending sold listing", () => {
@@ -65,22 +105,27 @@ Deno.test("parseEvListing — pending sold listing", () => {
   assertEquals(row.sold_dt, null); // not "Closed" → no sold_dt
 });
 
-Deno.test("parseEvListing — closed sold with ClosedPrice null (logged-out)", () => {
+Deno.test("parseEvListing — closed row with a future CloseDate (scheduled closing)", () => {
+  // "Closed" in EV can mean a firm deal scheduled to close later; CloseDate is
+  // in the future and no price is recorded yet. sold_dt carries that future
+  // date so the shared aggregate excludes it from completed (past) windows -
+  // the same outcome as a ViewPoint pending listing.
   const row = parseEvListing({
     id: "abc-4",
     MlsStatus: "SOLD",
     StandardStatus: "Closed",
     ListPrice: "300000",
-    ClosedPrice: null, // auth-gated; null when logged out
+    ClosedPrice: null,
+    PurchasePrice: null,
     ListingContractDate: "2025-05-09",
-    ModificationTimestamp: "2026-06-12T00:00:00.000Z",
+    CloseDate: "2026-06-12T00:00:00.000Z",
     BuildingAreaTotal: "1500",
     Latitude: "44.6",
     Longitude: "-63.6",
   });
   assertEquals(row.status_id, 2);
-  assertEquals(row.sold_price, null);
-  assertEquals(row.sold_dt, "2026-06-12T00:00:00.000Z"); // still populated
+  assertEquals(row.sold_price, null); // neither ClosedPrice nor PurchasePrice
+  assertEquals(row.sold_dt, "2026-06-12"); // the (future) closing date
 });
 
 Deno.test("parseEvListing — empty-string and null fields coerce to null", () => {

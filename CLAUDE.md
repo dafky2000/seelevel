@@ -159,8 +159,16 @@ change).
 
 These constraints exist for legal/Web Store reasons. Don't relax them:
 
-- **No extra API requests.** The extension only observes XHRs ViewPoint already
-  makes. Never call `fetch()` to a viewpoint endpoint from extension code.
+- **No extra API requests on ViewPoint.** On viewpoint.ca the extension only
+  observes XHRs the page already makes - never call `fetch()` to a viewpoint
+  endpoint from extension code. **The Engel & Völkers adapter is the one
+  documented exception:** EV's map XHR returns only a page of results, so
+  `src/content/ev/sibling-fetch.ts` fires exactly one slim, filtered
+  `get-listing` request per map resolve (pan/zoom), reusing the page's existing
+  auth session, to get complete viewport coverage. It is deduped,
+  at-most-one-in-flight, and never retried. Don't add any other request paths on
+  either site. (See the EV adapter spec and the per-adapter network table in
+  `docs/superpowers/specs/2026-05-26-permissions-minimization-design.md`.)
 - **Nothing is persisted, full stop.** Zero `chrome.storage` usage. The EULA is
   acknowledged per panel-mount via plain `useState`. Listing/analytical data
   lives in Preact memory only.

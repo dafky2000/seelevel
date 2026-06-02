@@ -391,7 +391,7 @@ function App() {
       </div>
 
       {!store
-        ? <EmptyState />
+        ? <EmptyState host={store?.host ?? null} />
         : viewportOversize
         ? <OversizeNotice mode="block" count={store.oversizeCount!} />
         : zoneNoPolygon
@@ -409,7 +409,7 @@ function App() {
         : showSpinner
         ? <Spinner />
         : listingCount === 0
-        ? <EmptyState />
+        ? <EmptyState host={store.host} />
         : (
           <>
             <div class="seelevel-section">
@@ -485,7 +485,7 @@ function App() {
               >
                 {store.scope === "zone" ? "Clear data" : "Clear"}
               </button>
-              <ExportButton sections={sections} />
+              <ExportButton sections={sections} host={store.host} />
               <span class="seelevel-footer__info">{listingCount} in scope</span>
             </div>
           </>
