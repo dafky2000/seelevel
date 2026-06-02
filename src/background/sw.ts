@@ -1,4 +1,3 @@
-/// <reference types="chrome"/>
 import type { PanelDown, PanelUp, RelayDown, RelayUp } from "../types.ts";
 
 // One port per ViewPoint tab, keyed by tab id, opened by relay.ts on

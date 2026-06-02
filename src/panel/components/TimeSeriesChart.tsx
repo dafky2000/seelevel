@@ -1,9 +1,8 @@
-import { h } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import uPlot from "uplot";
 // @ts-ignore - CSS imported as a text string via the esbuild npm-css-text plugin
 import uplotCss from "uplot/dist/uPlot.min.css";
-import type { MetricKey, WindowSize } from "../../../types.ts";
+import type { MetricKey, WindowSize } from "../../types.ts";
 import type { AggregateSummary, SeriesSummary } from "../lib/aggregate.ts";
 import { SERIES_COLORS, SERIES_FILLS } from "../lib/colors.ts";
 import { formatLocalDate, formatMetricValue } from "../lib/format.ts";

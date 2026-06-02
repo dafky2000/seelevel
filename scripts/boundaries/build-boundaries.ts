@@ -2,7 +2,7 @@
 // the SOCRATA_API_KEY/SECRET from .env (HTTP Basic auth), transforms every
 // feature to a RegionRecord, and writes src/panel/data/ns-municipalities.json.
 // Never bundled into the extension; never runs in the shipped code.
-import { join } from "jsr:@std/path@1";
+import { join } from "@std/path";
 import type { RegionRecord } from "../../src/types.ts";
 import { featureToRegion } from "./transform.ts";
 

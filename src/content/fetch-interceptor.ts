@@ -99,11 +99,10 @@ const patchedSend = function (this: XMLHttpRequest) {
   try {
     const url = urlByXhr.get(this) ?? "";
     if (isWatchedUrl(url)) {
-      const xhr = this;
-      xhr.addEventListener("load", () => {
+      this.addEventListener("load", () => {
         // Defer all work off the page's XHR callback stack - the page's own
         // load handlers run fully before we touch anything.
-        setTimeout(() => processResponse(xhr, url), 0);
+        setTimeout(() => processResponse(this, url), 0);
       }, { once: true });
     }
   } catch { /* ignore - never block the request */ }

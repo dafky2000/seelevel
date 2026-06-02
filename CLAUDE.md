@@ -28,11 +28,17 @@ deno run -A build.ts              # dev build → build/ with inline sourcemaps
 deno run -A build.ts --prod       # production build (minified, no sourcemaps)
 deno run -A build.ts --package    # production + zip → seelevel-<version>.zip
 
-deno test -A src/                                    # full suite
+deno test -A src/ scripts/                           # full suite
 deno test -A src/panel/lib/__tests__/aggregate.test.ts   # one file
 deno test -A --filter "bucket boundaries" src/       # by test name
 
-deno fmt && deno lint            # built-in formatter/linter (not biome here)
+# Full CI gate (run before finishing) - all four are guarded in
+# .github/workflows/{ci,release}.yml:
+deno fmt --check                       # formatter (not biome here)
+deno lint                              # linter
+deno check src/ scripts/ build.ts      # type check (clean; @types/chrome is
+                                       #   pinned in deno.json compilerOptions.types)
+deno test -A src/ scripts/             # tests
 ```
 
 Load the unpacked extension from `build/` in `chrome://extensions` (Developer

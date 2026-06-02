@@ -1,7 +1,7 @@
-import * as esbuild from "npm:esbuild@0.24";
-import { denoPlugins } from "jsr:@luca/esbuild-deno-loader@0.11";
-import { join } from "jsr:@std/path@1";
-import { exists } from "jsr:@std/fs@1";
+import * as esbuild from "esbuild";
+import { denoPlugins } from "@luca/esbuild-deno-loader";
+import { join } from "@std/path";
+import { exists } from "@std/fs";
 
 const dir = new URL(".", import.meta.url).pathname;
 const manifest = JSON.parse(

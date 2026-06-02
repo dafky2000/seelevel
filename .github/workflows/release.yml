@@ -77,8 +77,17 @@ jobs:
           cat release-notes.md
           echo "---------------------------------"
 
+      - name: Format check
+        run: deno fmt --check
+
+      - name: Lint
+        run: deno lint
+
+      - name: Type check
+        run: deno check src/ scripts/ build.ts
+
       - name: Test
-        run: deno test -A src/
+        run: deno test -A src/ scripts/
 
       - name: Build & package
         run: deno run -A build.ts --package

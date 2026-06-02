@@ -6,11 +6,6 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function str(v: unknown): string | null {
-  if (v === null || v === undefined || v === "") return null;
-  return String(v);
-}
-
 // Keep the calendar-date portion (YYYY-MM-DD) of a date or ISO timestamp. EV
 // dates arrive as UTC-midnight ISO strings; taking the date portion lets them
 // bucket by local calendar day exactly like ViewPoint's date-only fields,

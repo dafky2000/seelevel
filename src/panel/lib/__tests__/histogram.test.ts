@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert@1";
+import { assertEquals } from "@std/assert";
 import { priceHistogram } from "../histogram.ts";
 import type { ListingRow } from "../../../types.ts";
 import type { Bucket } from "../bucket.ts";

@@ -1,4 +1,3 @@
-/// <reference types="chrome"/>
 import L from "leaflet";
 import "@geoman-io/leaflet-geoman-free";
 // deno-lint-ignore-file no-explicit-any
@@ -6,7 +5,7 @@ import "@geoman-io/leaflet-geoman-free";
 import leafletCss from "leaflet/dist/leaflet.css";
 // @ts-ignore - CSS imported as text string via esbuild npm-css-text plugin
 import geomanCss from "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
-import type { BBox, ZoneShape } from "../types.ts";
+import type { ZoneShape } from "../types.ts";
 
 // Callback registered by relay.ts so zone changes propagate through the
 // shared "relay" port instead of the legacy broadcast mechanism.
@@ -410,7 +409,3 @@ export function showZone(shape: ZoneShape): void {
   currentShape = shape;
   onZoneChange?.(shape);
 }
-
-// Coverage % is shown in the side panel - no map overlay rectangles needed.
-// deno-lint-ignore no-unused-vars
-export function updateCoverageOverlay(_fetchedBboxes: BBox[]): void {}

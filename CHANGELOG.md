@@ -2,7 +2,7 @@
 
 All notable changes to SeeLevel are documented here.
 
-## [v0.2.0] - 2026-05-30
+## [v0.2.0] - 2026-06-02
 
 ### Added
 
@@ -57,6 +57,16 @@ All notable changes to SeeLevel are documented here.
   wiped when a listing has no `pid` → property join to resolve against; listings
   that already carry their own latitude/longitude are preserved for the
   point-in-polygon zone filter.
+
+### Internal
+
+- **Lint and type-check are now clean and CI-guarded.** `deno fmt`, `deno lint`,
+  `deno check`, and the test suite all run on every push and pull request (and
+  again before a release), so regressions are caught at the gate. The cleanup
+  pinned `@types/chrome`, centralized dependency specifiers in `deno.json`, and
+  fixed two latent type-only bugs that never reached runtime: four components
+  imported the shared types module by the wrong relative path, and the no-data
+  empty state dereferenced a value already narrowed away.
 
 ## [v0.1.1] - 2026-05-28
 

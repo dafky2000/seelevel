@@ -1,4 +1,3 @@
-/// <reference types="chrome"/>
 import { DRIVE_EVENT, EVT } from "../../types.ts";
 import type {
   BBox,

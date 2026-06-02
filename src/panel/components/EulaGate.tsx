@@ -1,5 +1,3 @@
-import { h } from "preact";
-
 export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
   return (
     <div
@@ -37,6 +35,7 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
         Nothing is stored, transmitted off-device, or redistributed.
       </p>
       <button
+        type="button"
         class="seelevel-btn seelevel-btn--primary"
         style={{
           fontSize: "11px",

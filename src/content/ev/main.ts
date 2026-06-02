@@ -77,8 +77,8 @@ maskAsNative(patchedSend, origSend);
 XMLHttpRequest.prototype.send = patchedSend as any;
 
 // Also observe fetch() in case the page ever switches API client.
-const origFetch = window.fetch;
-window.fetch = function (input, init) {
+const origFetch = globalThis.fetch;
+globalThis.fetch = function (input, init) {
   // Extract the body BEFORE forwarding to origFetch. When `input` is a Request,
   // fetch() consumes its body synchronously, so a later input.clone() throws
   // "Request body is already used". Cloning here, before origFetch sees it,

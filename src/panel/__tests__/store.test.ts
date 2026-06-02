@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert@1";
+import { assertEquals } from "@std/assert";
 import { mergeListings, resolveCoordinates } from "../store.ts";
 import type { ListingRow, PropertyRow } from "../../types.ts";
 

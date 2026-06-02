@@ -28,8 +28,17 @@ jobs:
           key: deno-${{ runner.os }}-${{ hashFiles('deno.lock') }}
           restore-keys: deno-${{ runner.os }}-
 
+      - name: Format check
+        run: deno fmt --check
+
+      - name: Lint
+        run: deno lint
+
+      - name: Type check
+        run: deno check src/ scripts/ build.ts
+
       - name: Test
-        run: deno test -A src/
+        run: deno test -A src/ scripts/
 
       - name: Build (production)
         run: deno run -A build.ts --prod
@@ -44,6 +53,8 @@ jobs:
           test -f build/background/sw.js
           test -f build/content/fetch-interceptor.js
           test -f build/content/relay.js
+          test -f build/content/ev/main.js
+          test -f build/content/ev/relay.js
           for size in 16 48 128; do
             test -f "build/icons/icon${size}.png"
           done

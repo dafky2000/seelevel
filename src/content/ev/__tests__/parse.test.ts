@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert@1";
+import { assertEquals } from "@std/assert";
 import { parseEvListing } from "../parse.ts";
 
 Deno.test("parseEvListing — active listing", () => {

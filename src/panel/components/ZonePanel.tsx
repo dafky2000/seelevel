@@ -1,4 +1,3 @@
-import { h } from "preact";
 import type { RegionRecord, RegionType } from "../../types.ts";
 import { NS_REGIONS } from "../data/regions.ts";
 

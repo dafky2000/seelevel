@@ -1,5 +1,4 @@
-import { h } from "preact";
-import type { MetricKey } from "../../../types.ts";
+import type { MetricKey } from "../../types.ts";
 import type { AggregateSummary, SeriesSummary } from "../lib/aggregate.ts";
 import { SERIES_COLORS } from "../lib/colors.ts";
 import { formatMetricValue as fmt } from "../lib/format.ts";

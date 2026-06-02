@@ -12,6 +12,9 @@
     "jsr:@std/path@^1.0.6": "1.1.5",
     "jsr:@std/path@^1.1.5": "1.1.5",
     "npm:@geoman-io/leaflet-geoman-free@2.17.0": "2.17.0_leaflet@1.9.4",
+    "npm:@types/chrome@*": "0.0.332",
+    "npm:@types/chrome@0.0": "0.0.332",
+    "npm:@types/chrome@0.0.332": "0.0.332",
     "npm:esbuild@0.24": "0.24.2",
     "npm:leaflet@1.9.4": "1.9.4",
     "npm:preact@10.26": "10.26.10",
@@ -334,8 +337,27 @@
         "@turf/meta"
       ]
     },
+    "@types/chrome@0.0.332": {
+      "integrity": "sha512-Fl4luF9q/iroXMKbL1LQyr/nCKhKwkwkZQ9qeeePFECW/8SP/Lrx2kJ26wnpTpr0iAznkENoO8g924CP4mfNxw==",
+      "dependencies": [
+        "@types/filesystem",
+        "@types/har-format"
+      ]
+    },
+    "@types/filesystem@0.0.36": {
+      "integrity": "sha512-vPDXOZuannb9FZdxgHnqSwAG/jvdGM8Wq+6N4D/d80z+D4HWH+bItqsZaVRQykAn6WEVeEkLm2oQigyHtgb0RA==",
+      "dependencies": [
+        "@types/filewriter"
+      ]
+    },
+    "@types/filewriter@0.0.33": {
+      "integrity": "sha512-xFU8ZXTw4gd358lb2jw25nxY9QAgqn2+bKKjKOYfNCzN4DKCFetK7sPtrlpg66Ywe3vWY9FNxprZawAh9wfJ3g=="
+    },
     "@types/geojson@7946.0.8": {
       "integrity": "sha512-1rkryxURpr6aWP7R786/UQOkJ3PcpQiWkAXBmdWc7ryFWqN6a4xfK7BtjXvFBKO9LjQ+MWQSWxYeZX1OApnArA=="
+    },
+    "@types/har-format@1.2.16": {
+      "integrity": "sha512-fluxdy7ryD3MV6h8pTfTYpy/xQzCFC7m89nOH9y94cNqJ1mDIDPut7MnRHI3F6qRmh/cT2fUjG1MLdCNb4hE9A=="
     },
     "bignumber.js@9.3.1": {
       "integrity": "sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ=="
@@ -416,7 +438,13 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@luca/esbuild-deno-loader@0.11",
+      "jsr:@std/assert@1",
+      "jsr:@std/fs@1",
+      "jsr:@std/path@1",
       "npm:@geoman-io/leaflet-geoman-free@2.17.0",
+      "npm:@types/chrome@0.0.332",
+      "npm:esbuild@0.24",
       "npm:leaflet@1.9.4",
       "npm:preact@10.26",
       "npm:uplot@1.6.31"

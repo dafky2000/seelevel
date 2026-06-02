@@ -56,7 +56,7 @@ function buildCalendarBuckets(
   // Find the most recent anchor boundary at or before now
   const anchorStart = lastAnchorBefore(now, size, anchorDow, anchorDom);
   const buckets: Bucket[] = [];
-  let start = new Date(anchorStart);
+  const start = new Date(anchorStart);
 
   // Most recent bucket - may be partial
   const currentEnd = stepForward(start, size);

@@ -1,8 +1,4 @@
-import {
-  assertAlmostEquals,
-  assertEquals,
-  assertExists,
-} from "jsr:@std/assert@1";
+import { assertAlmostEquals, assertEquals, assertExists } from "@std/assert";
 import { aggregate } from "../aggregate.ts";
 import type { ListingRow } from "../../../types.ts";
 import type { Bucket } from "../bucket.ts";

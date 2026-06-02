@@ -1,5 +1,4 @@
-import { h } from "preact";
-import type { MetricKey } from "../../../types.ts";
+import type { MetricKey } from "../../types.ts";
 import type { AggregateSummary } from "../lib/aggregate.ts";
 import { formatLocalDate } from "../lib/format.ts";
 
@@ -87,6 +86,7 @@ export function ExportButton(
 
   return (
     <button
+      type="button"
       class="seelevel-btn seelevel-btn--icon"
       onClick={download}
       disabled={!ready}

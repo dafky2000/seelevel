@@ -1,6 +1,5 @@
-import { h } from "preact";
 import { useState } from "preact/hooks";
-import type { AlignmentMode, WindowSize } from "../../../types.ts";
+import type { AlignmentMode, WindowSize } from "../../types.ts";
 
 const WINDOWS: { key: WindowSize; label: string }[] = [
   { key: "weekly", label: "Weekly" },
@@ -56,6 +55,7 @@ export function WindowPicker({
             const disabled = !availableSizes.includes(key);
             return (
               <button
+                type="button"
                 key={key}
                 class={`seelevel-window-tab${
                   windowSize === key ? " seelevel-window-tab--active" : ""
@@ -72,6 +72,7 @@ export function WindowPicker({
         {hasConfig && (
           <div class="seelevel-align-split">
             <button
+              type="button"
               class={`seelevel-align-btn${
                 alignmentMode === "today" ? " seelevel-align-btn--active" : ""
               }`}
@@ -84,6 +85,7 @@ export function WindowPicker({
             </button>
             <div style={{ width: "1px", background: "var(--color-border)" }} />
             <button
+              type="button"
               class={`seelevel-align-btn${
                 alignmentMode === "calendar"
                   ? " seelevel-align-btn--active"
@@ -148,6 +150,7 @@ export function WindowPicker({
                 <div style={{ display: "flex", gap: "2px" }}>
                   {DOW_NAMES.map((name, i) => (
                     <button
+                      type="button"
                       key={i}
                       onClick={() => {
                         onAnchorDow(i);

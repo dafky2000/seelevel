@@ -1,5 +1,4 @@
-import { h } from "preact";
-import type { ScopeKey } from "../../../types.ts";
+import type { ScopeKey } from "../../types.ts";
 
 const SCOPES: { key: ScopeKey; label: string }[] = [
   { key: "viewport", label: "Viewport" },
@@ -16,6 +15,7 @@ export function ScopeSelector(
       <div class="seelevel-tabs" style={{ flex: 1 }}>
         {SCOPES.map(({ key, label }) => (
           <button
+            type="button"
             key={key}
             class={`seelevel-tab seelevel-tab--${key}${
               scope === key ? " seelevel-tab--active" : ""

@@ -1,5 +1,5 @@
 import { pointInMultiPolygon } from "./lib/geofence.ts";
-import type { ListingRow, PropertyRow, ScopeKey, TabStore } from "../types.ts";
+import type { ListingRow, PropertyRow, TabStore } from "../types.ts";
 export { defaultTabStore } from "../types.ts";
 
 // ViewPoint listings arrive with lat/lng=null and a pid that joins to a paired

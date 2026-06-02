@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert@1";
+import { assert, assertEquals } from "@std/assert";
 import { availableWindowSizes, buildBuckets } from "../bucket.ts";
 
 // Fixed reference: Wednesday May 14 2025 12:00:00 UTC

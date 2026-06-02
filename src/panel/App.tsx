@@ -1,5 +1,4 @@
-/// <reference types="chrome"/>
-import { h, render } from "preact";
+import { render } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type {
   MetricKey,
@@ -112,7 +111,7 @@ function App() {
 
   // Detect active tab changes
   useEffect(() => {
-    function onActivated(info: chrome.tabs.TabActiveInfo) {
+    function onActivated(info: chrome.tabs.OnActivatedInfo) {
       setActiveTabId(info.tabId);
     }
     chrome.tabs.onActivated.addListener(onActivated);
@@ -555,7 +554,7 @@ function App() {
       </div>
 
       {!store
-        ? <EmptyState host={store?.host ?? null} />
+        ? <EmptyState host={null} />
         : viewportOversize
         ? <OversizeNotice mode="block" count={store.oversizeCount!} />
         : zoneNoPolygon
@@ -630,6 +629,7 @@ function App() {
 
             <div class="seelevel-footer">
               <button
+                type="button"
                 class="seelevel-btn seelevel-btn--ghost"
                 onClick={() => {
                   updateStore({

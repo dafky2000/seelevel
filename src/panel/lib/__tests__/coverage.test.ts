@@ -1,4 +1,4 @@
-import { assertAlmostEquals, assertEquals } from "jsr:@std/assert@1";
+import { assertAlmostEquals, assertEquals } from "@std/assert";
 import { computeCoverage } from "../coverage.ts";
 import type { BBox } from "../../../types.ts";
 

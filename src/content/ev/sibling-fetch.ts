@@ -115,7 +115,7 @@ async function fireSlim(filters: EvFilters, bbox: BBox): Promise<void> {
             "[seelevel] EV sibling 400:",
             (await r.text()).slice(0, 200),
           );
-        } catch {}
+        } catch { /* logging only - never block */ }
       }
       return;
     }
@@ -131,7 +131,7 @@ async function fireSlim(filters: EvFilters, bbox: BBox): Promise<void> {
     if (!result || typeof result.count !== "number") {
       try {
         console.warn("[seelevel] EV sibling: malformed response");
-      } catch {}
+      } catch { /* logging only - never block */ }
       return;
     }
 

@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert@1";
+import { assertEquals } from "@std/assert";
 import { featureToRegion, slugify } from "./transform.ts";
 
 // Minimal GeoJSON Feature: a MultiPolygon with two parts; the first has a hole;
