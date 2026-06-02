@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SeeLevel",
   "version": "0.2.0",
-  "description": "Turns the ViewPoint.ca and Engel & Völkers Nova Scotia listings you browse into actionable trends. For personal, non-professional, non-commercial use only.",
+  "description": "Turns the ViewPoint.ca and Engel & Völkers Nova Scotia real estate into trends. For personal, non-professional use only.",
   "permissions": ["sidePanel"],
   "side_panel": {
     "default_path": "panel/index.html"
