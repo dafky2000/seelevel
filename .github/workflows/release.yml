@@ -23,10 +23,10 @@ name: release
 
 on:
   push:
-    tags: ['v*.*.*']
+    tags: ["v*.*.*"]
 
 permissions:
-  contents: write  # required by `gh release create`
+  contents: write # required by `gh release create`
 
 jobs:
   release:

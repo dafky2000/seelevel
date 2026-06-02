@@ -54,7 +54,10 @@ function bboxToPolygon(bbox: BBox): Pt[] {
 // Returns fraction [0-1] of polygon area covered by the union of fetched bboxes.
 // Approximation: sums clipped areas without deduplicating bbox overlaps.
 // Good enough for Nova Scotia zoom levels where quadtree bboxes rarely overlap.
-export function computeCoverage(fetchedBboxes: BBox[], polygon: [number, number][]): number {
+export function computeCoverage(
+  fetchedBboxes: BBox[],
+  polygon: [number, number][],
+): number {
   const total = polygonArea(polygon);
   if (total === 0 || fetchedBboxes.length === 0) return 0;
   let covered = 0;

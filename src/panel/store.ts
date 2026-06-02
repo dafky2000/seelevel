@@ -2,14 +2,24 @@ import { pointInPolygon } from "./lib/geofence.ts";
 import type { ListingRow, PropertyRow, ScopeKey, TabStore } from "../types.ts";
 export { defaultTabStore } from "../types.ts";
 
+// ViewPoint listings arrive with lat/lng=null and a pid that joins to a paired
+// PropertyRow in the same batch. EV listings arrive with lat/lng populated and
+// pid=null (no join needed). Only overwrite coords when a join actually
+// produces a value — otherwise preserve whatever the parser gave us.
 export function resolveCoordinates(
   listings: ListingRow[],
   properties: PropertyRow[],
 ): ListingRow[] {
-  const coordMap = new Map<string, { lat: number | null; lng: number | null }>();
+  if (properties.length === 0) return listings;
+  const coordMap = new Map<
+    string,
+    { lat: number | null; lng: number | null }
+  >();
   for (const p of properties) coordMap.set(p.pid, { lat: p.lat, lng: p.lng });
   return listings.map((l) => {
-    const coords = l.pid ? (coordMap.get(l.pid) ?? { lat: null, lng: null }) : { lat: null, lng: null };
+    if (!l.pid) return l;
+    const coords = coordMap.get(l.pid);
+    if (!coords) return l;
     return { ...l, lat: coords.lat, lng: coords.lng };
   });
 }
@@ -17,11 +27,17 @@ export function resolveCoordinates(
 // Merge incoming listings into the session: new ids added, existing ids
 // refreshed - but never lose coordinates we already resolved (a later response
 // may arrive without a paired property record).
-export function mergeListings(existing: ListingRow[], incoming: ListingRow[]): ListingRow[] {
+export function mergeListings(
+  existing: ListingRow[],
+  incoming: ListingRow[],
+): ListingRow[] {
   const map = new Map(existing.map((l) => [l.id, l]));
   for (const l of incoming) {
     const prev = map.get(l.id);
-    map.set(l.id, prev ? { ...l, lat: l.lat ?? prev.lat, lng: l.lng ?? prev.lng } : l);
+    map.set(
+      l.id,
+      prev ? { ...l, lat: l.lat ?? prev.lat, lng: l.lng ?? prev.lng } : l,
+    );
   }
   return Array.from(map.values());
 }
@@ -46,7 +62,9 @@ export function scopedListings(store: TabStore): ListingRow[] {
     // No zone drawn yet → nothing is "in the zone" (the panel shows a prompt).
     if (!polygon) return [];
     return session.filter(
-      (l) => l.lat !== null && l.lng !== null && pointInPolygon(l.lat!, l.lng!, polygon),
+      (l) =>
+        l.lat !== null && l.lng !== null &&
+        pointInPolygon(l.lat!, l.lng!, polygon),
     );
   }
   return session; // session scope - everything accumulated

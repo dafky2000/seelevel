@@ -1,8 +1,7 @@
 import { assertEquals, assertExists } from "jsr:@std/assert@1";
 import { parseInterceptedResponse } from "../parse.ts";
 
-const SEARCH_URL =
-  "https://www.viewpoint.ca/api/v2/listing/search?" +
+const SEARCH_URL = "https://www.viewpoint.ca/api/v2/listing/search?" +
   "parameters%5Bstatus%5D=active&" +
   "parameters%5Bsearch_area%5D=45.0%2C+-63.0%2C+14%2C+44.5%2C+-63.5%2C+45.5%2C+-62.5&" +
   "CLIENT_VER=123&nonce=abc";
@@ -12,10 +11,17 @@ const MOCK_BODY = JSON.stringify({
   nonce: "xyz",
   listings: [
     {
-      id: "L1", listing_id: "ML1", class_id: 1, status_id: 1,
-      list_price: 350000, sold_price: null,
-      list_dt: "2025-03-01", sold_dt: null, close_dt: null,
-      tla: 1200, pid: "PID1",
+      id: "L1",
+      listing_id: "ML1",
+      class_id: 1,
+      status_id: 1,
+      list_price: 350000,
+      sold_price: null,
+      list_dt: "2025-03-01",
+      sold_dt: null,
+      close_dt: null,
+      tla: 1200,
+      pid: "PID1",
     },
   ],
   properties: [

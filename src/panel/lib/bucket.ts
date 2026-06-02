@@ -12,14 +12,20 @@ export function buildBuckets(
   now: Date,
   size: WindowSize,
   mode: AlignmentMode,
-  anchorDayOfWeek = 1,   // 0=Sun … 6=Sat, default Mon
-  anchorDayOfMonth = 1,  // 1-31, default 1st
+  anchorDayOfWeek = 1, // 0=Sun … 6=Sat, default Mon
+  anchorDayOfMonth = 1, // 1-31, default 1st
 ): Bucket[] {
   const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
   if (mode === "today") {
     return buildTodayBuckets(now, yearAgo, size);
   }
-  return buildCalendarBuckets(now, yearAgo, size, anchorDayOfWeek, anchorDayOfMonth);
+  return buildCalendarBuckets(
+    now,
+    yearAgo,
+    size,
+    anchorDayOfWeek,
+    anchorDayOfMonth,
+  );
 }
 
 function buildTodayBuckets(now: Date, from: Date, size: WindowSize): Bucket[] {
@@ -97,11 +103,21 @@ function stepForward(date: Date, size: WindowSize): Date {
   return d;
 }
 
-function stepBackCalendar(date: Date, size: WindowSize, _anchorDow: number, _anchorDom: number): Date {
+function stepBackCalendar(
+  date: Date,
+  size: WindowSize,
+  _anchorDow: number,
+  _anchorDom: number,
+): Date {
   return stepBack(date, size);
 }
 
-function lastAnchorBefore(now: Date, size: WindowSize, anchorDow: number, anchorDom: number): Date {
+function lastAnchorBefore(
+  now: Date,
+  size: WindowSize,
+  anchorDow: number,
+  anchorDom: number,
+): Date {
   const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if (size === "weekly") {
     const dow = d.getDay();
@@ -122,7 +138,10 @@ function lastAnchorBefore(now: Date, size: WindowSize, anchorDow: number, anchor
   }
   // Go back a month
   const prevMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-  const maxDom = Math.min(dom, daysInMonth(prevMonth.getFullYear(), prevMonth.getMonth()));
+  const maxDom = Math.min(
+    dom,
+    daysInMonth(prevMonth.getFullYear(), prevMonth.getMonth()),
+  );
   return new Date(prevMonth.getFullYear(), prevMonth.getMonth(), maxDom);
 }
 
@@ -137,7 +156,11 @@ function formatRange(start: Date, end: Date): string {
 }
 
 // Buckets per year for each window size - used to gate weekly on sample size.
-const BUCKETS_PER_YEAR: Record<WindowSize, number> = { weekly: 52, monthly: 12, yearly: 1 };
+const BUCKETS_PER_YEAR: Record<WindowSize, number> = {
+  weekly: 52,
+  monthly: 12,
+  yearly: 1,
+};
 const WINDOW_ORDER: WindowSize[] = ["weekly", "monthly", "yearly"];
 
 // Monthly and yearly are always available - monthly is the minimum (and default)

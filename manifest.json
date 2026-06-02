@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SeeLevel",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Turns the ViewPoint.ca listings you browse into actionable trends. For personal, non-professional, non-commerical use only.",
   "permissions": ["sidePanel"],
   "side_panel": {
@@ -21,6 +21,18 @@
     {
       "matches": ["*://*.viewpoint.ca/map*"],
       "js": ["content/relay.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    },
+    {
+      "matches": ["https://engelvoelkersnovascotia.com/*"],
+      "js": ["content/ev/main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://engelvoelkersnovascotia.com/*"],
+      "js": ["content/ev/relay.js"],
       "run_at": "document_start",
       "world": "ISOLATED"
     }

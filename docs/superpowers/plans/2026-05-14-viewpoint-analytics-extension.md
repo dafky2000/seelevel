@@ -1,14 +1,33 @@
 # ViewPoint Analytics Extension - Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or
+> superpowers:executing-plans to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a Chrome MV3 extension that intercepts viewpoint.ca listing API responses, computes rolling aggregate analytics (avg/median/stddev/count/DOM/$/sqft/list→sold%), and displays interactive time-series charts in a native Chrome Side Panel scoped to viewport, session, or a user-drawn geofence zone.
+**Goal:** Build a Chrome MV3 extension that intercepts viewpoint.ca listing API
+responses, computes rolling aggregate analytics
+(avg/median/stddev/count/DOM/$/sqft/list→sold%), and displays interactive
+time-series charts in a native Chrome Side Panel scoped to viewport, session, or
+a user-drawn geofence zone.
 
-**Architecture:** A MAIN-world content script patches `window.fetch` to intercept listing search responses and fires a `CustomEvent` on the document; an ISOLATED-world relay script picks it up and forwards via `chrome.runtime.sendMessage` to the side panel (Preact app). The side panel maintains per-tab state in memory (no storage APIs). A geofence overlay (Leaflet + Geoman, bundled) injects a Draw Zone button onto the viewpoint map; polygon coordinates are relayed to the side panel to scope analytics. All side panel ↔ content routing goes through the background service worker (port-based, avoids `tabs` permission).
+**Architecture:** A MAIN-world content script patches `window.fetch` to
+intercept listing search responses and fires a `CustomEvent` on the document; an
+ISOLATED-world relay script picks it up and forwards via
+`chrome.runtime.sendMessage` to the side panel (Preact app). The side panel
+maintains per-tab state in memory (no storage APIs). A geofence overlay
+(Leaflet + Geoman, bundled) injects a Draw Zone button onto the viewpoint map;
+polygon coordinates are relayed to the side panel to scope analytics. All side
+panel ↔ content routing goes through the background service worker (port-based,
+avoids `tabs` permission).
 
-**Tech Stack:** Deno + esbuild (build), Preact 10 + @dano/styles (side panel UI), uPlot (charts), Leaflet 1.9 + Leaflet-Geoman 2.17 (geofence drawing), Chrome MV3 APIs (sidePanel, scripting, activeTab), Deno test (unit tests on pure library functions).
+**Tech Stack:** Deno + esbuild (build), Preact 10 + @dano/styles (side panel
+UI), uPlot (charts), Leaflet 1.9 + Leaflet-Geoman 2.17 (geofence drawing),
+Chrome MV3 APIs (sidePanel, scripting, activeTab), Deno test (unit tests on pure
+library functions).
 
-**Spec:** `docs/superpowers/specs/2026-05-14-viewpoint-analytics-extension-design.md`
+**Spec:**
+`docs/superpowers/specs/2026-05-14-viewpoint-analytics-extension-design.md`
 
 ---
 
@@ -78,6 +97,7 @@ extension/
 ### Task 1: Scaffold
 
 **Files:**
+
 - Create: `extension/manifest.json`
 - Create: `extension/deno.json`
 - Create: `extension/build.ts`
@@ -209,7 +229,8 @@ build/
 
 - [ ] **Step 6: Add placeholder icons (any 16×16, 48×48, 128×128 PNG)**
 
-Copy any square PNG as a placeholder - they're required for the manifest to load:
+Copy any square PNG as a placeholder - they're required for the manifest to
+load:
 
 ```bash
 # If ImageMagick is available:
@@ -218,7 +239,8 @@ convert -size 48x48 xc:#4363d8 extension/icons/icon48.png
 convert -size 128x128 xc:#4363d8 extension/icons/icon128.png
 ```
 
-- [ ] **Step 7: Verify build runs (will fail - source files don't exist yet, that's fine)**
+- [ ] **Step 7: Verify build runs (will fail - source files don't exist yet,
+      that's fine)**
 
 ```bash
 cd extension && deno run -A build.ts 2>&1 | head -5
@@ -238,6 +260,7 @@ git commit -m "feat(extension): scaffold manifest, build system, deno config"
 ### Task 2: Shared Types
 
 **Files:**
+
 - Create: `extension/src/types.ts`
 
 - [ ] **Step 1: Write `extension/src/types.ts`**
@@ -268,9 +291,9 @@ export interface ListingRow {
   close_dt: string | null;
   list_dt: string | null;
   sold_dt: string | null;
-  tla: number | null;       // total living area (sqft)
+  tla: number | null; // total living area (sqft)
   pid: string | null;
-  lat: number | null;       // resolved from paired PropertyRow
+  lat: number | null; // resolved from paired PropertyRow
   lng: number | null;
 }
 
@@ -284,7 +307,7 @@ export interface PropertyRow {
 export interface InterceptEvent {
   listings: RawListing[];
   properties: RawProperty[];
-  searchUrl: string;        // full URL including bbox + status params
+  searchUrl: string; // full URL including bbox + status params
 }
 
 // deno-lint-ignore no-explicit-any
@@ -294,12 +317,17 @@ export type RawProperty = Record<string, any>;
 
 // Messages from content scripts → background SW → side panel
 export type ContentToPanel =
-  | { type: "listings"; listings: ListingRow[]; properties: PropertyRow[]; bbox: BBox; status: SearchStatus }
+  | {
+    type: "listings";
+    listings: ListingRow[];
+    properties: PropertyRow[];
+    bbox: BBox;
+    status: SearchStatus;
+  }
   | { type: "zone"; polygon: [number, number][] | null };
 
 // Messages from side panel → background SW → content scripts
-export type PanelToContent =
-  | { type: "clear_zone" };
+export type PanelToContent = { type: "clear_zone" };
 
 // Per-tab state in the side panel (in Preact memory only, never persisted)
 export interface TabStore {
@@ -313,8 +341,8 @@ export interface TabStore {
   metric: MetricKey;
   windowSize: WindowSize;
   alignmentMode: AlignmentMode;
-  anchorDayOfWeek: number;   // 0=Sun … 6=Sat; default 1=Mon
-  anchorDayOfMonth: number;  // 1-31; default 1
+  anchorDayOfWeek: number; // 0=Sun … 6=Sat; default 1=Mon
+  anchorDayOfMonth: number; // 1-31; default 1
 }
 
 export function defaultTabStore(tabId: number): TabStore {
@@ -347,10 +375,12 @@ git commit -m "feat(extension): shared types - ListingRow, TabStore, messages"
 ### Task 3: Parse Library
 
 **Files:**
+
 - Create: `extension/src/panel/lib/parse.ts`
 - Create: `extension/src/panel/lib/__tests__/parse.test.ts`
 
-Ported from `scrapers/viewpoint/client.ts` - adapted to use the extension's types.
+Ported from `scrapers/viewpoint/client.ts` - adapted to use the extension's
+types.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -359,8 +389,7 @@ Ported from `scrapers/viewpoint/client.ts` - adapted to use the extension's type
 import { assertEquals, assertExists } from "jsr:@std/assert@1";
 import { parseInterceptedResponse } from "../parse.ts";
 
-const SEARCH_URL =
-  "https://www.viewpoint.ca/api/v2/listing/search?" +
+const SEARCH_URL = "https://www.viewpoint.ca/api/v2/listing/search?" +
   "parameters%5Bstatus%5D=active&" +
   "parameters%5Bsearch_area%5D=45.0%2C+-63.0%2C+14%2C+44.5%2C+-63.5%2C+45.5%2C+-62.5&" +
   "CLIENT_VER=123&nonce=abc";
@@ -370,10 +399,17 @@ const MOCK_BODY = JSON.stringify({
   nonce: "xyz",
   listings: [
     {
-      id: "L1", listing_id: "ML1", class_id: 1, status_id: 1,
-      list_price: 350000, sold_price: null,
-      list_dt: "2025-03-01", sold_dt: null, close_dt: null,
-      tla: 1200, pid: "PID1",
+      id: "L1",
+      listing_id: "ML1",
+      class_id: 1,
+      status_id: 1,
+      list_price: 350000,
+      sold_price: null,
+      list_dt: "2025-03-01",
+      sold_dt: null,
+      close_dt: null,
+      tla: 1200,
+      pid: "PID1",
     },
   ],
   properties: [
@@ -418,7 +454,14 @@ Expected: `error: Module not found "...parse.ts"`
 - [ ] **Step 3: Write `extension/src/panel/lib/parse.ts`**
 
 ```typescript
-import type { BBox, ListingRow, PropertyRow, RawListing, RawProperty, SearchStatus } from "../../../types.ts";
+import type {
+  BBox,
+  ListingRow,
+  PropertyRow,
+  RawListing,
+  RawProperty,
+  SearchStatus,
+} from "../../../types.ts";
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -470,7 +513,12 @@ function parseBbox(searchUrl: string): BBox | null {
     // format: "ctrLat, ctrLng, zoom, sw_lat, sw_lng, ne_lat, ne_lng"
     const parts = area.split(",").map((s) => parseFloat(s.trim()));
     if (parts.length < 7 || parts.some(isNaN)) return null;
-    return { sw_lat: parts[3], sw_lng: parts[4], ne_lat: parts[5], ne_lng: parts[6] };
+    return {
+      sw_lat: parts[3],
+      sw_lng: parts[4],
+      ne_lat: parts[5],
+      ne_lng: parts[6],
+    };
   } catch {
     return null;
   }
@@ -544,6 +592,7 @@ git commit -m "feat(extension): parse library - parseInterceptedResponse ported 
 ### Task 4: Bucket Library
 
 **Files:**
+
 - Create: `extension/src/panel/lib/bucket.ts`
 - Create: `extension/src/panel/lib/__tests__/bucket.test.ts`
 
@@ -551,8 +600,8 @@ git commit -m "feat(extension): parse library - parseInterceptedResponse ported 
 
 ```typescript
 // extension/src/panel/lib/__tests__/bucket.test.ts
-import { assertEquals, assert } from "jsr:@std/assert@1";
-import { buildBuckets, availableWindowSizes } from "../bucket.ts";
+import { assert, assertEquals } from "jsr:@std/assert@1";
+import { availableWindowSizes, buildBuckets } from "../bucket.ts";
 
 // Fixed reference: Wednesday May 14 2025 12:00:00 UTC
 const NOW = new Date("2025-05-14T12:00:00Z");
@@ -566,7 +615,11 @@ Deno.test("buildBuckets today-weekly - no partial buckets", () => {
   // Each bucket is exactly 7 days
   for (const b of buckets) {
     const ms = b.end.getTime() - b.start.getTime();
-    assertEquals(ms, 7 * 24 * 60 * 60 * 1000, `Bucket ${b.label} should be 7 days`);
+    assertEquals(
+      ms,
+      7 * 24 * 60 * 60 * 1000,
+      `Bucket ${b.label} should be 7 days`,
+    );
   }
 });
 
@@ -579,7 +632,10 @@ Deno.test("buildBuckets today-monthly - no partial buckets", () => {
 
 Deno.test("buildBuckets today-daily - covers ~365 days", () => {
   const buckets = buildBuckets(NOW, "daily", "today");
-  assert(buckets.length >= 364 && buckets.length <= 366, `Got ${buckets.length} daily buckets`);
+  assert(
+    buckets.length >= 364 && buckets.length <= 366,
+    `Got ${buckets.length} daily buckets`,
+  );
 });
 
 Deno.test("buildBuckets calendar-weekly - current bucket is partial (today is Wed, anchor Mon)", () => {
@@ -602,7 +658,10 @@ Deno.test("buildBuckets - buckets are contiguous and ascending", () => {
     assertEquals(buckets[i].start.getTime(), buckets[i - 1].end.getTime());
   }
   assert(buckets[0].start >= ONE_YEAR_AGO);
-  assert(buckets[buckets.length - 1].end <= NOW || buckets[buckets.length - 1].end.getTime() - NOW.getTime() < 86400000);
+  assert(
+    buckets[buckets.length - 1].end <= NOW ||
+      buckets[buckets.length - 1].end.getTime() - NOW.getTime() < 86400000,
+  );
 });
 
 Deno.test("buildBuckets today-yearly - single bucket, not partial", () => {
@@ -667,14 +726,20 @@ export function buildBuckets(
   now: Date,
   size: WindowSize,
   mode: AlignmentMode,
-  anchorDayOfWeek = 1,   // 0=Sun … 6=Sat, default Mon
-  anchorDayOfMonth = 1,  // 1-31, default 1st
+  anchorDayOfWeek = 1, // 0=Sun … 6=Sat, default Mon
+  anchorDayOfMonth = 1, // 1-31, default 1st
 ): Bucket[] {
   const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
   if (mode === "today") {
     return buildTodayBuckets(now, yearAgo, size);
   }
-  return buildCalendarBuckets(now, yearAgo, size, anchorDayOfWeek, anchorDayOfMonth);
+  return buildCalendarBuckets(
+    now,
+    yearAgo,
+    size,
+    anchorDayOfWeek,
+    anchorDayOfMonth,
+  );
 }
 
 function buildTodayBuckets(now: Date, from: Date, size: WindowSize): Bucket[] {
@@ -752,12 +817,24 @@ function stepForward(date: Date, size: WindowSize): Date {
   return d;
 }
 
-function stepBackCalendar(date: Date, size: WindowSize, anchorDow: number, anchorDom: number): Date {
+function stepBackCalendar(
+  date: Date,
+  size: WindowSize,
+  anchorDow: number,
+  anchorDom: number,
+): Date {
   return stepBack(date, size); // same as today for weekly/daily; for monthly respects anchorDom via lastAnchorBefore
 }
 
-function lastAnchorBefore(now: Date, size: WindowSize, anchorDow: number, anchorDom: number): Date {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+function lastAnchorBefore(
+  now: Date,
+  size: WindowSize,
+  anchorDow: number,
+  anchorDom: number,
+): Date {
+  const d = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
   if (size === "daily") return d;
   if (size === "weekly") {
     const dow = d.getUTCDay();
@@ -774,9 +851,16 @@ function lastAnchorBefore(now: Date, size: WindowSize, anchorDow: number, anchor
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), dom));
   }
   // Go back a month
-  const prevMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
-  const maxDom = Math.min(dom, daysInMonth(prevMonth.getUTCFullYear(), prevMonth.getUTCMonth()));
-  return new Date(Date.UTC(prevMonth.getUTCFullYear(), prevMonth.getUTCMonth(), maxDom));
+  const prevMonth = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1),
+  );
+  const maxDom = Math.min(
+    dom,
+    daysInMonth(prevMonth.getUTCFullYear(), prevMonth.getUTCMonth()),
+  );
+  return new Date(
+    Date.UTC(prevMonth.getUTCFullYear(), prevMonth.getUTCMonth(), maxDom),
+  );
 }
 
 function daysInMonth(year: number, month: number): number {
@@ -791,7 +875,12 @@ function formatLabel(date: Date, size: WindowSize): string {
 }
 
 // Minimum average listings per bucket to enable a window size.
-const BUCKETS_PER_YEAR: Record<WindowSize, number> = { daily: 365, weekly: 52, monthly: 12, yearly: 1 };
+const BUCKETS_PER_YEAR: Record<WindowSize, number> = {
+  daily: 365,
+  weekly: 52,
+  monthly: 12,
+  yearly: 1,
+};
 const WINDOW_ORDER: WindowSize[] = ["daily", "weekly", "monthly", "yearly"];
 
 // Returns which window sizes have ≥5 avg listings/bucket. Yearly is always included as fallback.
@@ -822,6 +911,7 @@ git commit -m "feat(extension): bucket library - today-trailing, calendar-aligne
 ### Task 5: Aggregate Library
 
 **Files:**
+
 - Create: `extension/src/panel/lib/aggregate.ts`
 - Create: `extension/src/panel/lib/__tests__/aggregate.test.ts`
 
@@ -829,17 +919,30 @@ git commit -m "feat(extension): bucket library - today-trailing, calendar-aligne
 
 ```typescript
 // extension/src/panel/lib/__tests__/aggregate.test.ts
-import { assertEquals, assertAlmostEquals, assertExists } from "jsr:@std/assert@1";
+import {
+  assertAlmostEquals,
+  assertEquals,
+  assertExists,
+} from "jsr:@std/assert@1";
 import { aggregate } from "../aggregate.ts";
 import type { ListingRow } from "../../../../types.ts";
 import type { Bucket } from "../bucket.ts";
 
 function makeListing(overrides: Partial<ListingRow>): ListingRow {
   return {
-    id: "L1", listing_id: "ML1", class_id: 1, status_id: 1,
-    list_price: 300000, sold_price: null,
-    list_dt: "2025-05-01", sold_dt: null, close_dt: null,
-    tla: 1000, pid: "P1", lat: 44.8, lng: -63.1,
+    id: "L1",
+    listing_id: "ML1",
+    class_id: 1,
+    status_id: 1,
+    list_price: 300000,
+    sold_price: null,
+    list_dt: "2025-05-01",
+    sold_dt: null,
+    close_dt: null,
+    tla: 1000,
+    pid: "P1",
+    lat: 44.8,
+    lng: -63.1,
     ...overrides,
   };
 }
@@ -879,7 +982,12 @@ Deno.test("aggregate price - empty bucket returns nulls", () => {
 
 Deno.test("aggregate dom - uses list_dt and sold_dt", () => {
   const listings = [
-    makeListing({ id: "1", list_dt: "2025-05-01", sold_dt: "2025-05-11", sold_price: 290000 }),
+    makeListing({
+      id: "1",
+      list_dt: "2025-05-01",
+      sold_dt: "2025-05-11",
+      sold_price: 290000,
+    }),
   ];
   const result = aggregate(listings, "dom", [MAY_BUCKET], "sold");
   assertAlmostEquals(result.buckets[0].avg!, 10, 0.01);
@@ -893,16 +1001,30 @@ Deno.test("aggregate ppsf - list_price / tla", () => {
 
 Deno.test("aggregate listToSold - ratio", () => {
   const listings = [
-    makeListing({ id: "1", list_price: 300000, sold_price: 291000, sold_dt: "2025-05-10" }),
+    makeListing({
+      id: "1",
+      list_price: 300000,
+      sold_price: 291000,
+      sold_dt: "2025-05-10",
+    }),
   ];
   const result = aggregate(listings, "listToSold", [MAY_BUCKET], "sold");
   assertAlmostEquals(result.buckets[0].avg!, 0.97, 0.001);
 });
 
 Deno.test("aggregate delta - compares most recent to previous bucket", () => {
-  const may = [makeListing({ id: "1", list_price: 400000, list_dt: "2025-05-10" })];
-  const apr = [makeListing({ id: "2", list_price: 200000, list_dt: "2025-04-10" })];
-  const result = aggregate([...may, ...apr], "price", [APR_BUCKET, MAY_BUCKET], "active");
+  const may = [
+    makeListing({ id: "1", list_price: 400000, list_dt: "2025-05-10" }),
+  ];
+  const apr = [
+    makeListing({ id: "2", list_price: 200000, list_dt: "2025-04-10" }),
+  ];
+  const result = aggregate(
+    [...may, ...apr],
+    "price",
+    [APR_BUCKET, MAY_BUCKET],
+    "active",
+  );
   assertExists(result.delta);
   assertAlmostEquals(result.delta!, 1.0, 0.01); // +100% from 200k to 400k
 });
@@ -932,16 +1054,21 @@ export interface BucketStat {
   avg: number | null;
   median: number | null;
   stdDev: number | null;
-  belowFloor: boolean;  // true if count < EXPORT_FLOOR
+  belowFloor: boolean; // true if count < EXPORT_FLOOR
 }
 
 export interface AggregateSummary {
   buckets: BucketStat[];
-  overall: { count: number; avg: number | null; median: number | null; stdDev: number | null };
-  delta: number | null;  // fractional change: (current - prev) / prev
+  overall: {
+    count: number;
+    avg: number | null;
+    median: number | null;
+    stdDev: number | null;
+  };
+  delta: number | null; // fractional change: (current - prev) / prev
 }
 
-const EXPORT_FLOOR = 5;  // buckets below this are flagged (suppressed in CSV export)
+const EXPORT_FLOOR = 5; // buckets below this are flagged (suppressed in CSV export)
 
 export function aggregate(
   listings: ListingRow[],
@@ -957,7 +1084,9 @@ export function aggregate(
       const d = getDate(l);
       return d !== null && d >= bucket.start && d < bucket.end;
     });
-    const values = inBucket.map(getValue).filter((v): v is number => v !== null);
+    const values = inBucket.map(getValue).filter((v): v is number =>
+      v !== null
+    );
     return {
       bucket,
       count: metric === "volume" ? inBucket.length : values.length,
@@ -966,14 +1095,18 @@ export function aggregate(
     };
   });
 
-  const allValues = listings.map(getValue).filter((v): v is number => v !== null);
+  const allValues = listings.map(getValue).filter((v): v is number =>
+    v !== null
+  );
   const overall = {
     count: listings.length,
     ...computeStats(metric === "volume" ? null : allValues),
   };
 
   // Delta: most recent non-partial bucket avg vs the one before it
-  const complete = bucketStats.filter((b) => !b.bucket.isPartial && b.avg !== null);
+  const complete = bucketStats.filter((b) =>
+    !b.bucket.isPartial && b.avg !== null
+  );
   let delta: number | null = null;
   if (complete.length >= 2) {
     const curr = complete[complete.length - 1].avg!;
@@ -996,11 +1129,17 @@ function makeDateExtractor(status: SearchStatus) {
 function makeExtractor(metric: MetricKey, status: SearchStatus) {
   return (l: ListingRow): number | null => {
     switch (metric) {
-      case "price": return status === "sold" ? l.sold_price : l.list_price;
-      case "volume": return 1;
+      case "price":
+        return status === "sold" ? l.sold_price : l.list_price;
+      case "volume":
+        return 1;
       case "dom": {
         const listD = l.list_dt ? new Date(l.list_dt) : null;
-        const soldD = l.sold_dt ? new Date(l.sold_dt) : l.close_dt ? new Date(l.close_dt) : null;
+        const soldD = l.sold_dt
+          ? new Date(l.sold_dt)
+          : l.close_dt
+          ? new Date(l.close_dt)
+          : null;
         if (!listD || !soldD) return null;
         return Math.round((soldD.getTime() - listD.getTime()) / 86400000);
       }
@@ -1015,12 +1154,17 @@ function makeExtractor(metric: MetricKey, status: SearchStatus) {
 }
 
 function computeStats(values: number[] | null) {
-  if (!values || values.length === 0) return { avg: null, median: null, stdDev: null };
+  if (!values || values.length === 0) {
+    return { avg: null, median: null, stdDev: null };
+  }
   const avg = values.reduce((a, b) => a + b, 0) / values.length;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-  const variance = values.reduce((a, b) => a + (b - avg) ** 2, 0) / values.length;
+  const median = sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+  const variance = values.reduce((a, b) => a + (b - avg) ** 2, 0) /
+    values.length;
   return { avg, median, stdDev: Math.sqrt(variance) };
 }
 ```
@@ -1045,6 +1189,7 @@ git commit -m "feat(extension): aggregate library - per-bucket stats, delta, exp
 ### Task 6: Geofence Library
 
 **Files:**
+
 - Create: `extension/src/panel/lib/geofence.ts`
 - Create: `extension/src/panel/lib/__tests__/geofence.test.ts`
 
@@ -1052,7 +1197,7 @@ git commit -m "feat(extension): aggregate library - per-bucket stats, delta, exp
 
 ```typescript
 // extension/src/panel/lib/__tests__/geofence.test.ts
-import { assertEquals, assertAlmostEquals } from "jsr:@std/assert@1";
+import { assertAlmostEquals, assertEquals } from "jsr:@std/assert@1";
 import { pointInPolygon, polygonArea } from "../geofence.ts";
 
 // Simple square: [0,0] → [0,1] → [1,1] → [1,0]  (lat, lng)
@@ -1084,7 +1229,12 @@ Deno.test("polygonArea - empty polygon is 0", () => {
 
 Deno.test("pointInPolygon - non-convex (L-shaped) polygon", () => {
   const L: [number, number][] = [
-    [0, 0], [0, 2], [1, 2], [1, 1], [2, 1], [2, 0],
+    [0, 0],
+    [0, 2],
+    [1, 2],
+    [1, 1],
+    [2, 1],
+    [2, 0],
   ];
   assertEquals(pointInPolygon(0.5, 0.5, L), true);
   assertEquals(pointInPolygon(1.5, 1.5, L), false);
@@ -1102,13 +1252,20 @@ cd extension && deno test src/panel/lib/__tests__/geofence.test.ts
 ```typescript
 // [lat, lng] polygon - all coords in geographic degrees
 
-export function pointInPolygon(lat: number, lng: number, polygon: [number, number][]): boolean {
+export function pointInPolygon(
+  lat: number,
+  lng: number,
+  polygon: [number, number][],
+): boolean {
   let inside = false;
   const n = polygon.length;
   for (let i = 0, j = n - 1; i < n; j = i++) {
     const [yi, xi] = polygon[i];
     const [yj, xj] = polygon[j];
-    if (((yi > lat) !== (yj > lat)) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+    if (
+      ((yi > lat) !== (yj > lat)) &&
+      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
+    ) {
       inside = !inside;
     }
   }
@@ -1147,6 +1304,7 @@ git commit -m "feat(extension): geofence lib - ray-cast point-in-polygon + shoel
 ### Task 7: Coverage Library
 
 **Files:**
+
 - Create: `extension/src/panel/lib/coverage.ts`
 - Create: `extension/src/panel/lib/__tests__/coverage.test.ts`
 
@@ -1257,7 +1415,10 @@ function bboxToPolygon(bbox: BBox): Pt[] {
 // Returns fraction [0-1] of polygon area covered by the union of fetched bboxes.
 // Approximation: sums clipped areas without deduplicating bbox overlaps.
 // Good enough for Nova Scotia zoom levels where quadtree bboxes rarely overlap.
-export function computeCoverage(fetchedBboxes: BBox[], polygon: [number, number][]): number {
+export function computeCoverage(
+  fetchedBboxes: BBox[],
+  polygon: [number, number][],
+): number {
   const total = polygonArea(polygon);
   if (total === 0 || fetchedBboxes.length === 0) return 0;
   let covered = 0;
@@ -1299,9 +1460,12 @@ git commit -m "feat(extension): coverage lib - Sutherland-Hodgman bbox∩polygon
 ### Task 8: Background Service Worker
 
 **Files:**
+
 - Create: `extension/src/background/sw.ts`
 
-The SW does three things: opens the side panel when the action icon is clicked; routes messages from content scripts to the side panel; routes `clear_zone` messages from the side panel back to the geofence overlay via a stored port.
+The SW does three things: opens the side panel when the action icon is clicked;
+routes messages from content scripts to the side panel; routes `clear_zone`
+messages from the side panel back to the geofence overlay via a stored port.
 
 - [ ] **Step 1: Write `extension/src/background/sw.ts`**
 
@@ -1347,7 +1511,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 cd extension && deno check src/background/sw.ts
 ```
 
-> Note: Deno's LSP may flag Chrome APIs as unknown - this is expected. `dano check` / `deno check` against `lib: ["dom"]` is sufficient; the build itself uses esbuild which doesn't typecheck Chrome globals. Errors about `chrome` are false positives.
+> Note: Deno's LSP may flag Chrome APIs as unknown - this is expected.
+> `dano check` / `deno check` against `lib: ["dom"]` is sufficient; the build
+> itself uses esbuild which doesn't typecheck Chrome globals. Errors about
+> `chrome` are false positives.
 
 - [ ] **Step 3: Commit**
 
@@ -1361,9 +1528,12 @@ git commit -m "feat(extension): background SW - side panel open + port routing"
 ### Task 9: Fetch Interceptor (MAIN World)
 
 **Files:**
+
 - Create: `extension/src/content/fetch-interceptor.ts`
 
-Runs in MAIN world (`document_start`). Patches `window.fetch` before viewpoint's scripts load. Fires a `CustomEvent` on `document` for each listing search response.
+Runs in MAIN world (`document_start`). Patches `window.fetch` before viewpoint's
+scripts load. Fires a `CustomEvent` on `document` for each listing search
+response.
 
 - [ ] **Step 1: Write `extension/src/content/fetch-interceptor.ts`**
 
@@ -1375,7 +1545,10 @@ const SEARCH_PATH = "/api/v2/listing/search";
 
 const originalFetch = window.fetch.bind(window);
 
-window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+window.fetch = async function (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
   const url = typeof input === "string"
     ? input
     : input instanceof URL
@@ -1411,9 +1584,12 @@ git commit -m "feat(extension): fetch interceptor - MAIN world window.fetch patc
 ### Task 10: Relay Content Script (ISOLATED World)
 
 **Files:**
+
 - Create: `extension/src/content/relay.ts`
 
-Runs in ISOLATED world. Listens for `vpa:listings` CustomEvents, calls `parseInterceptedResponse`, and forwards `ContentToPanel` messages to the side panel. Also imports and initialises `geofence-overlay.ts`.
+Runs in ISOLATED world. Listens for `vpa:listings` CustomEvents, calls
+`parseInterceptedResponse`, and forwards `ContentToPanel` messages to the side
+panel. Also imports and initialises `geofence-overlay.ts`.
 
 - [ ] **Step 1: Write `extension/src/content/relay.ts`**
 
@@ -1427,7 +1603,8 @@ import { initGeofenceOverlay } from "./geofence-overlay.ts";
 let lastStatus = "any";
 
 document.addEventListener("vpa:listings", (e) => {
-  const { body, url } = (e as CustomEvent<{ body: string; url: string }>).detail;
+  const { body, url } =
+    (e as CustomEvent<{ body: string; url: string }>).detail;
   const parsed = parseInterceptedResponse(body, url);
   if (!parsed) return;
 
@@ -1466,9 +1643,12 @@ git commit -m "feat(extension): relay - ISOLATED bridge from CustomEvent to runt
 ### Task 11: Geofence Overlay
 
 **Files:**
+
 - Create: `extension/src/content/geofence-overlay.ts`
 
-Injects Leaflet + Geoman onto the viewpoint Google Maps page. Manages Draw Zone button lifecycle, drawing UX, live editing, and relays polygon coordinates to the side panel via the background SW port.
+Injects Leaflet + Geoman onto the viewpoint Google Maps page. Manages Draw Zone
+button lifecycle, drawing UX, live editing, and relays polygon coordinates to
+the side panel via the background SW port.
 
 - [ ] **Step 1: Write `extension/src/content/geofence-overlay.ts`**
 
@@ -1477,7 +1657,9 @@ Injects Leaflet + Geoman onto the viewpoint Google Maps page. Manages Draw Zone 
 import L from "leaflet";
 import "@geoman-io/leaflet-geoman-free";
 import leafletCss from "leaflet/dist/leaflet.css" assert { type: "text" };
-import geomanCss from "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css" assert { type: "text" };
+import geomanCss from "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css" assert {
+  type: "text",
+};
 import type { ContentToPanel } from "../types.ts";
 
 let leafletMap: L.Map | null = null;
@@ -1536,7 +1718,8 @@ function setButtonState(state: "idle" | "drawing" | "active"): void {
 function buildButtons(container: HTMLElement): void {
   const wrap = document.createElement("div");
   wrap.id = "vpa-draw-wrap";
-  wrap.style.cssText = "position:absolute;top:54px;right:46px;z-index:1000;display:flex;gap:4px;";
+  wrap.style.cssText =
+    "position:absolute;top:54px;right:46px;z-index:1000;display:flex;gap:4px;";
 
   drawBtn = document.createElement("button");
   drawBtn.className = "vpa-draw-btn";
@@ -1562,7 +1745,11 @@ function buildButtons(container: HTMLElement): void {
         snappable: false,
         templineStyle: { color: "#4363d8", dashArray: "5,3" },
         hintlineStyle: { color: "#4363d8", opacity: 0.5 },
-        pathOptions: { color: "#4363d8", fillColor: "#4363d8", fillOpacity: 0.08 },
+        pathOptions: {
+          color: "#4363d8",
+          fillColor: "#4363d8",
+          fillOpacity: 0.08,
+        },
       });
     }
   });
@@ -1579,13 +1766,18 @@ function onPolygonCreated(layer: L.Polygon): void {
   setButtonState("active");
 
   // Style completed polygon
-  layer.setStyle({ color: "#16c784", fillColor: "#16c784", fillOpacity: 0.1, weight: 1.5 });
+  layer.setStyle({
+    color: "#16c784",
+    fillColor: "#16c784",
+    fillOpacity: 0.1,
+    weight: 1.5,
+  });
 
   // Enable vertex editing immediately
   layer.pm.enable({ allowSelfIntersection: false });
 
   const updateZone = () => {
-    const latlngs = (layer.getLatLngs()[0] as L.LatLng[]);
+    const latlngs = layer.getLatLngs()[0] as L.LatLng[];
     const polygon: [number, number][] = latlngs.map((p) => [p.lat, p.lng]);
     sendZone(polygon);
   };
@@ -1639,8 +1831,7 @@ function initLeafletOverlay(mapContainer: HTMLElement): void {
 export function initGeofenceOverlay(): void {
   // Wait for the Google Maps container (#map or the canvas parent)
   const check = () => {
-    const mapEl =
-      document.getElementById("map") ??
+    const mapEl = document.getElementById("map") ??
       document.querySelector("[id*='map-canvas']") ??
       document.querySelector(".gm-style")?.parentElement;
     if (mapEl) {
@@ -1675,6 +1866,7 @@ git commit -m "feat(extension): geofence overlay - Leaflet draw + live edit + zo
 ### Task 12: Panel Shell + CSS Tokens
 
 **Files:**
+
 - Create: `extension/src/panel/index.html`
 - Create: `extension/src/panel/panel.css`
 
@@ -1683,16 +1875,16 @@ git commit -m "feat(extension): geofence overlay - Leaflet draw + live edit + zo
 ```html
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>ViewPoint Analytics</title>
-  <link rel="stylesheet" href="panel.css"/>
-</head>
-<body>
-  <div id="app"></div>
-  <script src="panel.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ViewPoint Analytics</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="panel.js"></script>
+  </body>
 </html>
 ```
 
@@ -1702,11 +1894,20 @@ Add to `build.ts` after the `Promise.all`:
 
 ```typescript
 // Copy static panel files
-await Deno.copyFile(join(dir, "src/panel/index.html"), join(dir, "build/panel/index.html"));
-await Deno.copyFile(join(dir, "src/panel/panel.css"), join(dir, "build/panel/panel.css"));
+await Deno.copyFile(
+  join(dir, "src/panel/index.html"),
+  join(dir, "build/panel/index.html"),
+);
+await Deno.copyFile(
+  join(dir, "src/panel/panel.css"),
+  join(dir, "build/panel/panel.css"),
+);
 // Copy icons
 for (const size of [16, 48, 128]) {
-  await Deno.copyFile(join(dir, `icons/icon${size}.png`), join(dir, `build/icons/icon${size}.png`));
+  await Deno.copyFile(
+    join(dir, `icons/icon${size}.png`),
+    join(dir, `build/icons/icon${size}.png`),
+  );
 }
 await Deno.mkdir(join(dir, "build/icons"), { recursive: true });
 ```
@@ -1714,7 +1915,10 @@ await Deno.mkdir(join(dir, "build/icons"), { recursive: true });
 Also add manifest copy:
 
 ```typescript
-await Deno.copyFile(join(dir, "manifest.json"), join(dir, "build/manifest.json"));
+await Deno.copyFile(
+  join(dir, "manifest.json"),
+  join(dir, "build/manifest.json"),
+);
 ```
 
 - [ ] **Step 3: Write `extension/src/panel/panel.css`**
@@ -1727,15 +1931,19 @@ await Deno.copyFile(join(dir, "manifest.json"), join(dir, "build/manifest.json")
   --color-border: oklch(25% 0.02 264);
   --color-text: oklch(88% 0.01 264);
   --color-muted: oklch(50% 0.01 264);
-  --color-accent: oklch(55% 0.2 264);     /* #4363d8 blue */
-  --color-green: oklch(72% 0.18 160);     /* #16c784 */
-  --color-orange: oklch(70% 0.18 55);     /* #f58231 */
+  --color-accent: oklch(55% 0.2 264); /* #4363d8 blue */
+  --color-green: oklch(72% 0.18 160); /* #16c784 */
+  --color-orange: oklch(70% 0.18 55); /* #f58231 */
   --color-red: oklch(60% 0.22 25);
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --radius: 6px;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
   font-family: var(--font);
@@ -1748,78 +1956,256 @@ body {
   flex-direction: column;
 }
 
-#app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
 /* Utility */
-.vpa-section { padding: 10px 14px; border-bottom: 1px solid var(--color-border); }
-.vpa-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-muted); }
-.vpa-row { display: flex; align-items: center; gap: 6px; }
+.vpa-section {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+.vpa-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-muted);
+}
+.vpa-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 /* Tab strip */
-.vpa-tabs { display: flex; gap: 2px; }
+.vpa-tabs {
+  display: flex;
+  gap: 2px;
+}
 .vpa-tab {
-  flex: 1; text-align: center; font-size: 9px; font-weight: 700;
-  padding: 4px 0; border-radius: 5px; cursor: pointer;
+  flex: 1;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 4px 0;
+  border-radius: 5px;
+  cursor: pointer;
   color: var(--color-muted);
   background: oklch(20% 0.02 264);
   border: 1px solid var(--color-border);
 }
-.vpa-tab--viewport.vpa-tab--active { background: oklch(28% 0.12 220); color: oklch(75% 0.15 220); border-color: oklch(40% 0.15 220); }
-.vpa-tab--session.vpa-tab--active { background: oklch(28% 0.1 55); color: oklch(75% 0.15 55); border-color: oklch(40% 0.12 55); }
-.vpa-tab--zone.vpa-tab--active { background: oklch(25% 0.1 160); color: oklch(72% 0.18 160); border-color: oklch(40% 0.15 160); }
+.vpa-tab--viewport.vpa-tab--active {
+  background: oklch(28% 0.12 220);
+  color: oklch(75% 0.15 220);
+  border-color: oklch(40% 0.15 220);
+}
+.vpa-tab--session.vpa-tab--active {
+  background: oklch(28% 0.1 55);
+  color: oklch(75% 0.15 55);
+  border-color: oklch(40% 0.12 55);
+}
+.vpa-tab--zone.vpa-tab--active {
+  background: oklch(25% 0.1 160);
+  color: oklch(72% 0.18 160);
+  border-color: oklch(40% 0.15 160);
+}
 
 /* Metric tabs */
-.vpa-metric-tabs { display: flex; border-bottom: 1px solid var(--color-border); overflow-x: auto; }
-.vpa-metric-tab {
-  flex-shrink: 0; padding: 7px 9px; font-size: 9px; font-weight: 700;
-  color: var(--color-muted); cursor: pointer;
-  border-bottom: 2px solid transparent; text-transform: uppercase; letter-spacing: 0.4px;
+.vpa-metric-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
 }
-.vpa-metric-tab--active { color: var(--color-accent); border-bottom-color: var(--color-accent); }
+.vpa-metric-tab {
+  flex-shrink: 0;
+  padding: 7px 9px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.vpa-metric-tab--active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
 
 /* Stats row */
-.vpa-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; background: var(--color-border); gap: 1px; }
-.vpa-stat { background: var(--color-surface); padding: 8px 10px; }
-.vpa-stat__val { font-size: 14px; font-weight: 700; color: var(--color-text); line-height: 1; }
-.vpa-stat__lbl { font-size: 8px; color: var(--color-muted); text-transform: uppercase; margin-top: 2px; }
-.vpa-stat__delta { font-size: 9px; font-weight: 600; margin-top: 2px; }
-.vpa-delta--up { color: var(--color-green); }
-.vpa-delta--down { color: var(--color-red); }
-.vpa-delta--neutral { color: var(--color-muted); }
+.vpa-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: var(--color-border);
+  gap: 1px;
+}
+.vpa-stat {
+  background: var(--color-surface);
+  padding: 8px 10px;
+}
+.vpa-stat__val {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1;
+}
+.vpa-stat__lbl {
+  font-size: 8px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.vpa-stat__delta {
+  font-size: 9px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.vpa-delta--up {
+  color: var(--color-green);
+}
+.vpa-delta--down {
+  color: var(--color-red);
+}
+.vpa-delta--neutral {
+  color: var(--color-muted);
+}
 
 /* Footer */
-.vpa-footer { padding: 7px 14px; border-top: 1px solid var(--color-border); display: flex; align-items: center; gap: 6px; margin-top: auto; }
-.vpa-btn { font-size: 9px; font-weight: 700; padding: 4px 10px; border-radius: 5px; cursor: pointer; border: 1px solid; }
-.vpa-btn--primary { background: oklch(28% 0.12 264); color: oklch(80% 0.15 264); border-color: oklch(40% 0.15 264); }
-.vpa-btn--ghost { background: transparent; color: var(--color-muted); border-color: var(--color-border); }
-.vpa-footer__info { margin-left: auto; font-size: 8px; color: oklch(30% 0.01 264); }
+.vpa-footer {
+  padding: 7px 14px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+}
+.vpa-btn {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid;
+}
+.vpa-btn--primary {
+  background: oklch(28% 0.12 264);
+  color: oklch(80% 0.15 264);
+  border-color: oklch(40% 0.15 264);
+}
+.vpa-btn--ghost {
+  background: transparent;
+  color: var(--color-muted);
+  border-color: var(--color-border);
+}
+.vpa-footer__info {
+  margin-left: auto;
+  font-size: 8px;
+  color: oklch(30% 0.01 264);
+}
 
 /* Window picker */
-.vpa-window-row { display: flex; align-items: center; gap: 6px; }
-.vpa-window-tabs { display: flex; gap: 2px; }
-.vpa-window-tab {
-  font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 5px;
-  cursor: pointer; color: var(--color-muted);
-  background: oklch(20% 0.02 264); border: 1px solid var(--color-border);
+.vpa-window-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.vpa-window-tab--active { background: var(--color-accent); color: #fff; border-color: transparent; }
-.vpa-window-tab--disabled { opacity: 0.35; cursor: not-allowed; }
-.vpa-align-split { margin-left: auto; display: flex; border: 1px solid var(--color-border); border-radius: 5px; overflow: hidden; }
-.vpa-align-btn { font-size: 8px; font-weight: 700; padding: 3px 7px; cursor: pointer; color: var(--color-muted); background: transparent; }
-.vpa-align-btn--active { background: oklch(28% 0.12 264); color: oklch(80% 0.15 264); }
+.vpa-window-tabs {
+  display: flex;
+  gap: 2px;
+}
+.vpa-window-tab {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--color-muted);
+  background: oklch(20% 0.02 264);
+  border: 1px solid var(--color-border);
+}
+.vpa-window-tab--active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: transparent;
+}
+.vpa-window-tab--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.vpa-align-split {
+  margin-left: auto;
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.vpa-align-btn {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 3px 7px;
+  cursor: pointer;
+  color: var(--color-muted);
+  background: transparent;
+}
+.vpa-align-btn--active {
+  background: oklch(28% 0.12 264);
+  color: oklch(80% 0.15 264);
+}
 
 /* Coverage bar */
-.vpa-coverage { background: oklch(16% 0.08 160 / 0.4); border: 1px solid oklch(30% 0.12 160 / 0.4); border-radius: 6px; padding: 7px 10px; }
-.vpa-coverage__track { height: 4px; background: oklch(20% 0.05 160 / 0.4); border-radius: 2px; overflow: hidden; margin: 5px 0; }
-.vpa-coverage__fill { height: 100%; background: linear-gradient(90deg, var(--color-green), oklch(80% 0.15 160)); border-radius: 2px; transition: width 0.3s; }
+.vpa-coverage {
+  background: oklch(16% 0.08 160 / 0.4);
+  border: 1px solid oklch(30% 0.12 160 / 0.4);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+.vpa-coverage__track {
+  height: 4px;
+  background: oklch(20% 0.05 160 / 0.4);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 5px 0;
+}
+.vpa-coverage__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-green), oklch(80% 0.15 160));
+  border-radius: 2px;
+  transition: width 0.3s;
+}
 
 /* Disclaimer */
-.vpa-disclaimer { font-size: 8px; color: oklch(28% 0.01 264); padding: 5px 14px; line-height: 1.4; border-top: 1px solid var(--color-border); }
+.vpa-disclaimer {
+  font-size: 8px;
+  color: oklch(28% 0.01 264);
+  padding: 5px 14px;
+  line-height: 1.4;
+  border-top: 1px solid var(--color-border);
+}
 
 /* Empty state */
-.vpa-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; padding: 24px; text-align: center; }
-.vpa-empty__icon { font-size: 32px; opacity: 0.2; }
-.vpa-empty__text { font-size: 11px; color: oklch(35% 0.01 264); line-height: 1.6; }
+.vpa-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+.vpa-empty__icon {
+  font-size: 32px;
+  opacity: 0.2;
+}
+.vpa-empty__text {
+  font-size: 11px;
+  color: oklch(35% 0.01 264);
+  line-height: 1.6;
+}
 ```
 
 - [ ] **Step 4: Build**
@@ -1842,6 +2228,7 @@ git commit -m "feat(extension): panel shell, CSS tokens from @dano/styles"
 ### Task 13: App.tsx - Tab Store + Message Listener
 
 **Files:**
+
 - Create: `extension/src/panel/store.ts`
 - Create: `extension/src/panel/App.tsx`
 
@@ -1849,17 +2236,27 @@ git commit -m "feat(extension): panel shell, CSS tokens from @dano/styles"
 
 ```typescript
 import { pointInPolygon } from "./lib/geofence.ts";
-import type { ListingRow, PropertyRow, ScopeKey, TabStore } from "../../types.ts";
+import type {
+  ListingRow,
+  PropertyRow,
+  ScopeKey,
+  TabStore,
+} from "../../types.ts";
 export { defaultTabStore } from "../../types.ts";
 
 export function resolveCoordinates(
   listings: ListingRow[],
   properties: PropertyRow[],
 ): ListingRow[] {
-  const coordMap = new Map<string, { lat: number | null; lng: number | null }>();
+  const coordMap = new Map<
+    string,
+    { lat: number | null; lng: number | null }
+  >();
   for (const p of properties) coordMap.set(p.pid, { lat: p.lat, lng: p.lng });
   return listings.map((l) => {
-    const coords = l.pid ? (coordMap.get(l.pid) ?? { lat: null, lng: null }) : { lat: null, lng: null };
+    const coords = l.pid
+      ? (coordMap.get(l.pid) ?? { lat: null, lng: null })
+      : { lat: null, lng: null };
     return { ...l, lat: coords.lat, lng: coords.lng };
   });
 }
@@ -1879,7 +2276,9 @@ export function scopedListings(store: TabStore): ListingRow[] {
   }
   if (scope === "zone" && polygon) {
     return listings.filter(
-      (l) => l.lat !== null && l.lng !== null && pointInPolygon(l.lat!, l.lng!, polygon),
+      (l) =>
+        l.lat !== null && l.lng !== null &&
+        pointInPolygon(l.lat!, l.lng!, polygon),
     );
   }
   return listings; // session
@@ -1893,7 +2292,11 @@ export function scopedListings(store: TabStore): ListingRow[] {
 import { h, render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { ContentToPanel, TabStore } from "../../types.ts";
-import { defaultTabStore, resolveCoordinates, scopedListings } from "./store.ts";
+import {
+  defaultTabStore,
+  resolveCoordinates,
+  scopedListings,
+} from "./store.ts";
 import { availableWindowSizes, buildBuckets } from "./lib/bucket.ts";
 import { aggregate } from "./lib/aggregate.ts";
 import { computeCoverage } from "./lib/coverage.ts";
@@ -1948,7 +2351,10 @@ function App() {
 
   // Listen for messages from content scripts
   useEffect(() => {
-    function onMessage(msg: ContentToPanel, sender: chrome.runtime.MessageSender) {
+    function onMessage(
+      msg: ContentToPanel,
+      sender: chrome.runtime.MessageSender,
+    ) {
       const tabId = sender.tab?.id;
       if (!tabId) return;
 
@@ -1992,7 +2398,10 @@ function App() {
   useEffect(() => {
     if (!store) return;
     const visible = scopedListings(store);
-    if (visible.length === 0) { setSummary(null); return; }
+    if (visible.length === 0) {
+      setSummary(null);
+      return;
+    }
     const availSizes = availableWindowSizes(visible.length);
     if (!availSizes.includes(store.windowSize)) {
       // Auto-switch to the coarsest finer-grained available size (last in order before yearly)
@@ -2000,7 +2409,13 @@ function App() {
       updateStore({ windowSize: next });
       return; // updateStore triggers re-render → this effect re-runs with corrected windowSize
     }
-    const buckets = buildBuckets(new Date(), store.windowSize, store.alignmentMode, store.anchorDayOfWeek, store.anchorDayOfMonth);
+    const buckets = buildBuckets(
+      new Date(),
+      store.windowSize,
+      store.alignmentMode,
+      store.anchorDayOfWeek,
+      store.anchorDayOfMonth,
+    );
     const result = aggregate(visible, store.metric, buckets, store.status);
     setSummary(result);
   }, [store]);
@@ -2014,7 +2429,14 @@ function App() {
 
   if (eulaAccepted === null) return null; // loading
   if (!eulaAccepted) {
-    return <EulaGate onAccept={() => { chrome.storage.local.set({ eulaAccepted: true }); setEulaAccepted(true); }} />;
+    return (
+      <EulaGate
+        onAccept={() => {
+          chrome.storage.local.set({ eulaAccepted: true });
+          setEulaAccepted(true);
+        }}
+      />
+    );
   }
 
   const coverage = store?.polygon && store.fetchedBboxes.length > 0
@@ -2024,17 +2446,53 @@ function App() {
   const listingCount = store ? scopedListings(store).length : 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        overflow: "hidden",
+      }}
+    >
       {/* Header */}
       <div class="vpa-section">
         <div class="vpa-row" style={{ marginBottom: "7px" }}>
-          <strong style={{ fontSize: "11px" }}>VP<span style={{ color: "var(--color-accent)" }}>Analytics</span></strong>
-          {listingCount > 0 && <span class="vpa-label" style={{ background: "oklch(25% 0.1 264 / 0.5)", padding: "1px 6px", borderRadius: "8px" }}>{listingCount} listings</span>}
-          <span style={{ marginLeft: "auto", width: "6px", height: "6px", borderRadius: "50%", background: listingCount > 0 ? "var(--color-green)" : "var(--color-muted)", boxShadow: listingCount > 0 ? "0 0 4px var(--color-green)" : "none" }} />
+          <strong style={{ fontSize: "11px" }}>
+            VP<span style={{ color: "var(--color-accent)" }}>Analytics</span>
+          </strong>
+          {listingCount > 0 && (
+            <span
+              class="vpa-label"
+              style={{
+                background: "oklch(25% 0.1 264 / 0.5)",
+                padding: "1px 6px",
+                borderRadius: "8px",
+              }}
+            >
+              {listingCount} listings
+            </span>
+          )}
+          <span
+            style={{
+              marginLeft: "auto",
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              background: listingCount > 0
+                ? "var(--color-green)"
+                : "var(--color-muted)",
+              boxShadow: listingCount > 0
+                ? "0 0 4px var(--color-green)"
+                : "none",
+            }}
+          />
         </div>
         {store && (
           <>
-            <ScopeSelector scope={store.scope} onScope={(scope) => updateStore({ scope })} />
+            <ScopeSelector
+              scope={store.scope}
+              onScope={(scope) => updateStore({ scope })}
+            />
             <div class="vpa-row" style={{ marginTop: "6px" }}>
               <FilterBadge status={store.status} />
             </div>
@@ -2045,9 +2503,7 @@ function App() {
         )}
       </div>
 
-      {!store || listingCount === 0 ? (
-        <EmptyState />
-      ) : (
+      {!store || listingCount === 0 ? <EmptyState /> : (
         <>
           <div class="vpa-section">
             <WindowPicker
@@ -2057,19 +2513,39 @@ function App() {
               anchorDayOfMonth={store.anchorDayOfMonth}
               availableSizes={availableWindowSizes(listingCount)}
               onWindowSize={(windowSize) => updateStore({ windowSize })}
-              onAlignmentMode={(alignmentMode) => updateStore({ alignmentMode })}
+              onAlignmentMode={(alignmentMode) =>
+                updateStore({ alignmentMode })}
               onAnchorDow={(dow) => updateStore({ anchorDayOfWeek: dow })}
               onAnchorDom={(dom) => updateStore({ anchorDayOfMonth: dom })}
             />
           </div>
-          <MetricTabs metric={store.metric} onMetric={(metric) => updateStore({ metric })} />
+          <MetricTabs
+            metric={store.metric}
+            onMetric={(metric) => updateStore({ metric })}
+          />
           {summary && <StatsRow summary={summary} metric={store.metric} />}
           {summary && (
-            <TimeSeriesChart summary={summary} metric={store.metric} windowSize={store.windowSize} />
+            <TimeSeriesChart
+              summary={summary}
+              metric={store.metric}
+              windowSize={store.windowSize}
+            />
           )}
           <div class="vpa-footer">
-            <ExportButton summary={summary} metric={store.metric} status={store.status} />
-            <button class="vpa-btn vpa-btn--ghost" onClick={() => updateStore({ listings: [], fetchedBboxes: [], viewportBbox: null })}>
+            <ExportButton
+              summary={summary}
+              metric={store.metric}
+              status={store.status}
+            />
+            <button
+              class="vpa-btn vpa-btn--ghost"
+              onClick={() =>
+                updateStore({
+                  listings: [],
+                  fetchedBboxes: [],
+                  viewportBbox: null,
+                })}
+            >
               {store.scope === "zone" ? "Clear zone" : "Clear"}
             </button>
             <span class="vpa-footer__info">{listingCount} in scope</span>
@@ -2096,6 +2572,7 @@ git commit -m "feat(extension): App.tsx - tab store, message listener, EULA gate
 ### Task 14: Side Panel Components
 
 **Files:**
+
 - Create: `extension/src/panel/components/EulaGate.tsx`
 - Create: `extension/src/panel/components/Disclaimer.tsx`
 - Create: `extension/src/panel/components/ScopeSelector.tsx`
@@ -2112,23 +2589,58 @@ import { h } from "preact";
 
 export function EulaGate({ onAccept }: { onAccept: () => void }) {
   return (
-    <div style={{ padding: "24px 18px", display: "flex", flexDirection: "column", gap: "14px" }}>
-      <strong style={{ fontSize: "14px" }}>VP<span style={{ color: "var(--color-accent)" }}>Analytics</span></strong>
-      <p style={{ fontSize: "11px", color: "var(--color-muted)", lineHeight: 1.6 }}>
+    <div
+      style={{
+        padding: "24px 18px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px",
+      }}
+    >
+      <strong style={{ fontSize: "14px" }}>
+        VP<span style={{ color: "var(--color-accent)" }}>Analytics</span>
+      </strong>
+      <p
+        style={{
+          fontSize: "11px",
+          color: "var(--color-muted)",
+          lineHeight: 1.6,
+        }}
+      >
         This tool is for <strong>personal real estate exploration only</strong>.
       </p>
-      <p style={{ fontSize: "10px", color: "var(--color-muted)", lineHeight: 1.6 }}>
-        If you use ViewPoint.ca in the course of commercial or professional work, ViewPoint requires
-        you to contact them directly before using data-augmenting tools. By continuing, you confirm
-        your use is personal and non-commercial.
+      <p
+        style={{
+          fontSize: "10px",
+          color: "var(--color-muted)",
+          lineHeight: 1.6,
+        }}
+      >
+        If you use ViewPoint.ca in the course of commercial or professional
+        work, ViewPoint requires you to contact them directly before using
+        data-augmenting tools. By continuing, you confirm your use is personal
+        and non-commercial.
       </p>
-      <p style={{ fontSize: "10px", color: "oklch(35% 0.01 264)", lineHeight: 1.5 }}>
-        This extension processes data your browser receives from ViewPoint.ca for personal use only. It does not store,
-        transmit, or redistribute listing data. Source: ViewPoint Realty, NSAR MLS® System and Province of Nova Scotia.
+      <p
+        style={{
+          fontSize: "10px",
+          color: "oklch(35% 0.01 264)",
+          lineHeight: 1.5,
+        }}
+      >
+        This extension processes data your browser receives from ViewPoint.ca
+        for personal use only. It does not store, transmit, or redistribute
+        listing data. Source: ViewPoint Realty, NSAR MLS® System and Province of
+        Nova Scotia.
       </p>
       <button
         class="vpa-btn vpa-btn--primary"
-        style={{ fontSize: "11px", padding: "8px 0", borderRadius: "6px", fontWeight: 700 }}
+        style={{
+          fontSize: "11px",
+          padding: "8px 0",
+          borderRadius: "6px",
+          fontWeight: 700,
+        }}
         onClick={onAccept}
       >
         I understand - Continue for personal use
@@ -2146,9 +2658,9 @@ import { h } from "preact";
 export function Disclaimer() {
   return (
     <div class="vpa-disclaimer">
-      Processes data your browser receives from ViewPoint.ca for personal use only.
-      Does not store, transmit, or redistribute listing data.
-      Source: ViewPoint.ca - NSAR MLS® System and Province of Nova Scotia.
+      Processes data your browser receives from ViewPoint.ca for personal use
+      only. Does not store, transmit, or redistribute listing data. Source:
+      ViewPoint.ca - NSAR MLS® System and Province of Nova Scotia.
     </div>
   );
 }
@@ -2166,7 +2678,9 @@ const SCOPES: { key: ScopeKey; label: string }[] = [
   { key: "zone", label: "⬡ Zone" },
 ];
 
-export function ScopeSelector({ scope, onScope }: { scope: ScopeKey; onScope: (s: ScopeKey) => void }) {
+export function ScopeSelector(
+  { scope, onScope }: { scope: ScopeKey; onScope: (s: ScopeKey) => void },
+) {
   return (
     <div class="vpa-row">
       <span class="vpa-label">Scope</span>
@@ -2174,7 +2688,9 @@ export function ScopeSelector({ scope, onScope }: { scope: ScopeKey; onScope: (s
         {SCOPES.map(({ key, label }) => (
           <button
             key={key}
-            class={`vpa-tab vpa-tab--${key}${scope === key ? " vpa-tab--active" : ""}`}
+            class={`vpa-tab vpa-tab--${key}${
+              scope === key ? " vpa-tab--active" : ""
+            }`}
             onClick={() => onScope(key)}
           >
             {label}
@@ -2192,7 +2708,11 @@ export function ScopeSelector({ scope, onScope }: { scope: ScopeKey; onScope: (s
 import { h } from "preact";
 import type { SearchStatus } from "../../../types.ts";
 
-const LABELS: Record<SearchStatus, string> = { active: "Active", sold: "Sold", any: "Any" };
+const LABELS: Record<SearchStatus, string> = {
+  active: "Active",
+  sold: "Sold",
+  any: "Any",
+};
 const COLORS: Record<SearchStatus, string> = {
   active: "oklch(28% 0.12 220)",
   sold: "oklch(25% 0.1 25)",
@@ -2208,10 +2728,25 @@ export function FilterBadge({ status }: { status: SearchStatus }) {
   return (
     <div class="vpa-row">
       <span class="vpa-label">Filter</span>
-      <span style={{ background: COLORS[status], color: TEXT[status], fontSize: "9px", fontWeight: 700, padding: "2px 7px", borderRadius: "8px" }}>
+      <span
+        style={{
+          background: COLORS[status],
+          color: TEXT[status],
+          fontSize: "9px",
+          fontWeight: 700,
+          padding: "2px 7px",
+          borderRadius: "8px",
+        }}
+      >
         {LABELS[status]}
       </span>
-      <span style={{ fontSize: "8px", color: "oklch(28% 0.01 264)", fontStyle: "italic" }}>
+      <span
+        style={{
+          fontSize: "8px",
+          color: "oklch(28% 0.01 264)",
+          fontStyle: "italic",
+        }}
+      >
         clears session on change
       </span>
     </div>
@@ -2236,12 +2771,20 @@ const WINDOWS: { key: WindowSize; label: string }[] = [
 const DOW_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function WindowPicker({
-  windowSize, alignmentMode, anchorDayOfWeek, anchorDayOfMonth,
+  windowSize,
+  alignmentMode,
+  anchorDayOfWeek,
+  anchorDayOfMonth,
   availableSizes,
-  onWindowSize, onAlignmentMode, onAnchorDow, onAnchorDom,
+  onWindowSize,
+  onAlignmentMode,
+  onAnchorDow,
+  onAnchorDom,
 }: {
-  windowSize: WindowSize; alignmentMode: AlignmentMode;
-  anchorDayOfWeek: number; anchorDayOfMonth: number;
+  windowSize: WindowSize;
+  alignmentMode: AlignmentMode;
+  anchorDayOfWeek: number;
+  anchorDayOfMonth: number;
   availableSizes: WindowSize[];
   onWindowSize: (w: WindowSize) => void;
   onAlignmentMode: (m: AlignmentMode) => void;
@@ -2264,9 +2807,13 @@ export function WindowPicker({
             return (
               <button
                 key={key}
-                class={`vpa-window-tab${windowSize === key ? " vpa-window-tab--active" : ""}${disabled ? " vpa-window-tab--disabled" : ""}`}
+                class={`vpa-window-tab${
+                  windowSize === key ? " vpa-window-tab--active" : ""
+                }${disabled ? " vpa-window-tab--disabled" : ""}`}
                 disabled={disabled}
-                title={disabled ? "Not enough data (need ≥5 listings/bucket)" : undefined}
+                title={disabled
+                  ? "Not enough data (need ≥5 listings/bucket)"
+                  : undefined}
                 onClick={() => !disabled && onWindowSize(key)}
               >
                 {label}
@@ -2276,41 +2823,104 @@ export function WindowPicker({
         </div>
         <div class="vpa-align-split">
           <button
-            class={`vpa-align-btn${alignmentMode === "today" ? " vpa-align-btn--active" : ""}`}
-            onClick={() => { onAlignmentMode("today"); setShowPopover(false); }}
-          >Today</button>
+            class={`vpa-align-btn${
+              alignmentMode === "today" ? " vpa-align-btn--active" : ""
+            }`}
+            onClick={() => {
+              onAlignmentMode("today");
+              setShowPopover(false);
+            }}
+          >
+            Today
+          </button>
           <div style={{ width: "1px", background: "var(--color-border)" }} />
           <button
-            class={`vpa-align-btn${alignmentMode === "calendar" ? " vpa-align-btn--active" : ""}`}
-            onClick={() => { onAlignmentMode("calendar"); setShowPopover((v) => !v); }}
+            class={`vpa-align-btn${
+              alignmentMode === "calendar" ? " vpa-align-btn--active" : ""
+            }`}
+            onClick={() => {
+              onAlignmentMode("calendar");
+              setShowPopover((v) => !v);
+            }}
           >
             {calendarLabel}
           </button>
         </div>
       </div>
       {showPopover && alignmentMode === "calendar" && (
-        <div style={{ position: "absolute", right: 0, top: "100%", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "8px", zIndex: 10, marginTop: "4px" }}>
-          {windowSize === "monthly" ? (
-            <div>
-              <div class="vpa-label" style={{ marginBottom: "4px" }}>Day of month</div>
-              <input type="number" min="1" max="28" value={anchorDayOfMonth}
-                onInput={(e) => onAnchorDom(parseInt((e.target as HTMLInputElement).value) || 1)}
-                style={{ width: "48px", background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: "4px", color: "var(--color-text)", padding: "2px 4px", fontSize: "11px" }}
-              />
-            </div>
-          ) : (
-            <div>
-              <div class="vpa-label" style={{ marginBottom: "4px" }}>Start of week</div>
-              <div style={{ display: "flex", gap: "2px" }}>
-                {DOW_NAMES.map((name, i) => (
-                  <button key={i} onClick={() => { onAnchorDow(i); setShowPopover(false); }}
-                    style={{ fontSize: "8px", padding: "2px 4px", borderRadius: "3px", border: "1px solid var(--color-border)", background: anchorDayOfWeek === i ? "var(--color-accent)" : "transparent", color: anchorDayOfWeek === i ? "#fff" : "var(--color-muted)", cursor: "pointer" }}>
-                    {name}
-                  </button>
-                ))}
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "100%",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius)",
+            padding: "8px",
+            zIndex: 10,
+            marginTop: "4px",
+          }}
+        >
+          {windowSize === "monthly"
+            ? (
+              <div>
+                <div class="vpa-label" style={{ marginBottom: "4px" }}>
+                  Day of month
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="28"
+                  value={anchorDayOfMonth}
+                  onInput={(e) =>
+                    onAnchorDom(
+                      parseInt((e.target as HTMLInputElement).value) || 1,
+                    )}
+                  style={{
+                    width: "48px",
+                    background: "var(--color-bg)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "4px",
+                    color: "var(--color-text)",
+                    padding: "2px 4px",
+                    fontSize: "11px",
+                  }}
+                />
               </div>
-            </div>
-          )}
+            )
+            : (
+              <div>
+                <div class="vpa-label" style={{ marginBottom: "4px" }}>
+                  Start of week
+                </div>
+                <div style={{ display: "flex", gap: "2px" }}>
+                  {DOW_NAMES.map((name, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        onAnchorDow(i);
+                        setShowPopover(false);
+                      }}
+                      style={{
+                        fontSize: "8px",
+                        padding: "2px 4px",
+                        borderRadius: "3px",
+                        border: "1px solid var(--color-border)",
+                        background: anchorDayOfWeek === i
+                          ? "var(--color-accent)"
+                          : "transparent",
+                        color: anchorDayOfWeek === i
+                          ? "#fff"
+                          : "var(--color-muted)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
       )}
     </div>
@@ -2338,11 +2948,19 @@ const METRICS: { key: MetricKey; label: string }[] = [
   { key: "listToSold", label: "L→S%" },
 ];
 
-export function MetricTabs({ metric, onMetric }: { metric: MetricKey; onMetric: (m: MetricKey) => void }) {
+export function MetricTabs(
+  { metric, onMetric }: { metric: MetricKey; onMetric: (m: MetricKey) => void },
+) {
   return (
     <div class="vpa-metric-tabs">
       {METRICS.map(({ key, label }) => (
-        <button key={key} class={`vpa-metric-tab${metric === key ? " vpa-metric-tab--active" : ""}`} onClick={() => onMetric(key)}>
+        <button
+          key={key}
+          class={`vpa-metric-tab${
+            metric === key ? " vpa-metric-tab--active" : ""
+          }`}
+          onClick={() => onMetric(key)}
+        >
           {label}
         </button>
       ))}
@@ -2367,18 +2985,26 @@ function fmt(v: number | null, metric: MetricKey): string {
   return String(Math.round(v));
 }
 
-export function StatsRow({ summary, metric }: { summary: AggregateSummary; metric: MetricKey }) {
+export function StatsRow(
+  { summary, metric }: { summary: AggregateSummary; metric: MetricKey },
+) {
   const { overall, delta } = summary;
-  const deltaClass = delta === null ? "vpa-delta--neutral"
-    : delta > 0 ? "vpa-delta--up" : "vpa-delta--down";
-  const deltaStr = delta === null ? "-"
+  const deltaClass = delta === null
+    ? "vpa-delta--neutral"
+    : delta > 0
+    ? "vpa-delta--up"
+    : "vpa-delta--down";
+  const deltaStr = delta === null
+    ? "-"
     : `${delta > 0 ? "↑" : "↓"} ${Math.abs(delta * 100).toFixed(1)}%`;
 
   return (
     <div class="vpa-stats">
       <div class="vpa-stat">
         <div class="vpa-stat__val">{fmt(overall.avg, metric)}</div>
-        <div class="vpa-stat__lbl">{metric === "volume" ? "Count" : "Average"}</div>
+        <div class="vpa-stat__lbl">
+          {metric === "volume" ? "Count" : "Average"}
+        </div>
         <div class={`vpa-stat__delta ${deltaClass}`}>{deltaStr}</div>
       </div>
       <div class="vpa-stat">
@@ -2386,8 +3012,14 @@ export function StatsRow({ summary, metric }: { summary: AggregateSummary; metri
         <div class="vpa-stat__lbl">Median</div>
       </div>
       <div class="vpa-stat">
-        <div class="vpa-stat__val">{metric === "volume" ? String(overall.count) : fmt(overall.stdDev, metric)}</div>
-        <div class="vpa-stat__lbl">{metric === "volume" ? "Total" : "Std Dev"}</div>
+        <div class="vpa-stat__val">
+          {metric === "volume"
+            ? String(overall.count)
+            : fmt(overall.stdDev, metric)}
+        </div>
+        <div class="vpa-stat__lbl">
+          {metric === "volume" ? "Total" : "Std Dev"}
+        </div>
       </div>
     </div>
   );
@@ -2404,7 +3036,7 @@ export function EmptyState() {
     <div class="vpa-empty">
       <div class="vpa-empty__icon">🗺️</div>
       <div class="vpa-empty__text">
-        Browse <strong>viewpoint.ca/map</strong> to start collecting data.<br/>
+        Browse <strong>viewpoint.ca/map</strong> to start collecting data.<br />
         Listings appear as you pan and filter.
       </div>
     </div>
@@ -2430,6 +3062,7 @@ git commit -m "feat(extension): side panel components - EULA, scope, filter, win
 ### Task 15: TimeSeriesChart + ZoneCoverage + ExportButton
 
 **Files:**
+
 - Create: `extension/src/panel/components/TimeSeriesChart.tsx`
 - Create: `extension/src/panel/components/ZoneCoverage.tsx`
 - Create: `extension/src/panel/components/ExportButton.tsx`
@@ -2444,11 +3077,19 @@ import type { MetricKey, WindowSize } from "../../../types.ts";
 import type { AggregateSummary } from "../lib/aggregate.ts";
 
 function metricLabel(metric: MetricKey): string {
-  return { price: "Avg List Price", volume: "Count", dom: "Avg DOM (days)", ppsf: "Avg $/sqft", listToSold: "List→Sold Ratio" }[metric];
+  return {
+    price: "Avg List Price",
+    volume: "Count",
+    dom: "Avg DOM (days)",
+    ppsf: "Avg $/sqft",
+    listToSold: "List→Sold Ratio",
+  }[metric];
 }
 
 export function TimeSeriesChart({
-  summary, metric, windowSize,
+  summary,
+  metric,
+  windowSize,
 }: { summary: AggregateSummary; metric: MetricKey; windowSize: WindowSize }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
@@ -2467,19 +3108,31 @@ export function TimeSeriesChart({
       cursor: { show: true },
       legend: { show: false },
       axes: [
-        { stroke: "oklch(35% 0.01 264)", ticks: { stroke: "oklch(20% 0.01 264)" }, grid: { stroke: "oklch(20% 0.01 264)" } },
-        { stroke: "oklch(35% 0.01 264)", ticks: { stroke: "oklch(20% 0.01 264)" }, grid: { stroke: "oklch(20% 0.01 264)" } },
+        {
+          stroke: "oklch(35% 0.01 264)",
+          ticks: { stroke: "oklch(20% 0.01 264)" },
+          grid: { stroke: "oklch(20% 0.01 264)" },
+        },
+        {
+          stroke: "oklch(35% 0.01 264)",
+          ticks: { stroke: "oklch(20% 0.01 264)" },
+          grid: { stroke: "oklch(20% 0.01 264)" },
+        },
       ],
       series: [
         {},
         {
           label: metricLabel(metric),
-          stroke: metric === "volume" ? "oklch(72% 0.18 160)" : "oklch(55% 0.2 264)",
+          stroke: metric === "volume"
+            ? "oklch(72% 0.18 160)"
+            : "oklch(55% 0.2 264)",
           fill: metric === "volume"
             ? "oklch(72% 0.18 160 / 0.15)"
             : "oklch(55% 0.2 264 / 0.12)",
           width: 1.5,
-          paths: metric === "volume" ? uPlot.paths.bars!({ size: [0.8, 8] }) : undefined,
+          paths: metric === "volume"
+            ? uPlot.paths.bars!({ size: [0.8, 8] })
+            : undefined,
           points: { show: false },
         },
       ],
@@ -2488,9 +3141,16 @@ export function TimeSeriesChart({
     if (chartRef.current) {
       chartRef.current.destroy();
     }
-    chartRef.current = new uPlot(opts, [xs, ys] as uPlot.AlignedData, containerRef.current);
+    chartRef.current = new uPlot(
+      opts,
+      [xs, ys] as uPlot.AlignedData,
+      containerRef.current,
+    );
 
-    return () => { chartRef.current?.destroy(); chartRef.current = null; };
+    return () => {
+      chartRef.current?.destroy();
+      chartRef.current = null;
+    };
   }, [summary, metric]);
 
   // Volume bar chart below the primary chart
@@ -2508,8 +3168,16 @@ export function TimeSeriesChart({
       legend: { show: false },
       cursor: { show: false },
       axes: [
-        { stroke: "oklch(35% 0.01 264)", ticks: { stroke: "oklch(20% 0.01 264)" }, grid: { stroke: "oklch(20% 0.01 264)" } },
-        { stroke: "oklch(35% 0.01 264)", ticks: { stroke: "oklch(20% 0.01 264)" }, grid: { show: false } },
+        {
+          stroke: "oklch(35% 0.01 264)",
+          ticks: { stroke: "oklch(20% 0.01 264)" },
+          grid: { stroke: "oklch(20% 0.01 264)" },
+        },
+        {
+          stroke: "oklch(35% 0.01 264)",
+          ticks: { stroke: "oklch(20% 0.01 264)" },
+          grid: { show: false },
+        },
       ],
       series: [
         {},
@@ -2524,20 +3192,65 @@ export function TimeSeriesChart({
       ],
     };
     if (volChartRef.current) volChartRef.current.destroy();
-    volChartRef.current = new uPlot(opts, [volXs, volYs] as uPlot.AlignedData, volContainerRef.current);
-    return () => { volChartRef.current?.destroy(); volChartRef.current = null; };
+    volChartRef.current = new uPlot(
+      opts,
+      [volXs, volYs] as uPlot.AlignedData,
+      volContainerRef.current,
+    );
+    return () => {
+      volChartRef.current?.destroy();
+      volChartRef.current = null;
+    };
   }, [summary, metric]);
 
   return (
-    <div style={{ padding: "8px 14px 0", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: "6px" }}>
-      <div style={{ fontSize: "9px", color: "var(--color-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", justifyContent: "space-between" }}>
+    <div
+      style={{
+        padding: "8px 14px 0",
+        flex: 1,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "9px",
+          color: "var(--color-muted)",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
         <span>{metricLabel(metric)}</span>
-        <span style={{ fontWeight: 400, fontStyle: "italic", textTransform: "none", letterSpacing: 0 }}>scroll to pan</span>
+        <span
+          style={{
+            fontWeight: 400,
+            fontStyle: "italic",
+            textTransform: "none",
+            letterSpacing: 0,
+          }}
+        >
+          scroll to pan
+        </span>
       </div>
       <div ref={containerRef} style={{ width: "100%" }} />
       {metric !== "volume" && (
         <>
-          <div style={{ fontSize: "9px", color: "var(--color-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>Volume</div>
+          <div
+            style={{
+              fontSize: "9px",
+              color: "var(--color-muted)",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Volume
+          </div>
           <div ref={volContainerRef} style={{ width: "100%" }} />
         </>
       )}
@@ -2551,20 +3264,56 @@ export function TimeSeriesChart({
 ```typescript
 import { h } from "preact";
 
-export function ZoneCoverage({ coverage, count }: { coverage: number; count: number }) {
+export function ZoneCoverage(
+  { coverage, count }: { coverage: number; count: number },
+) {
   const pct = Math.round(coverage * 100);
   return (
     <div class="vpa-coverage" style={{ marginTop: "7px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: "9px", color: "var(--color-green)", fontWeight: 700 }}>Zone coverage</span>
-        <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--color-green)" }}>{pct}%</span>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "9px",
+            color: "var(--color-green)",
+            fontWeight: 700,
+          }}
+        >
+          Zone coverage
+        </span>
+        <span
+          style={{
+            fontSize: "12px",
+            fontWeight: 800,
+            color: "var(--color-green)",
+          }}
+        >
+          {pct}%
+        </span>
       </div>
       <div class="vpa-coverage__track">
         <div class="vpa-coverage__fill" style={{ width: `${pct}%` }} />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "8px", color: "oklch(40% 0.08 160)" }}>{count} listings in zone</span>
-        {pct < 90 && <span style={{ fontSize: "8px", color: "oklch(35% 0.06 160)", fontStyle: "italic" }}>Pan to fill gaps</span>}
+        <span style={{ fontSize: "8px", color: "oklch(40% 0.08 160)" }}>
+          {count} listings in zone
+        </span>
+        {pct < 90 && (
+          <span
+            style={{
+              fontSize: "8px",
+              color: "oklch(35% 0.06 160)",
+              fontStyle: "italic",
+            }}
+          >
+            Pan to fill gaps
+          </span>
+        )}
       </div>
     </div>
   );
@@ -2587,18 +3336,28 @@ function formatValue(v: number | null, metric: MetricKey): string {
 }
 
 export function ExportButton({
-  summary, metric, status,
-}: { summary: AggregateSummary | null; metric: MetricKey; status: SearchStatus }) {
+  summary,
+  metric,
+  status,
+}: {
+  summary: AggregateSummary | null;
+  metric: MetricKey;
+  status: SearchStatus;
+}) {
   function download() {
     if (!summary) return;
     const rows: string[] = [
       `# Source: ViewPoint.ca (NSAR MLS® System and Province of Nova Scotia). For personal use only.`,
-      `# Metric: ${metric} | Filter: ${status} | Generated: ${new Date().toISOString()}`,
+      `# Metric: ${metric} | Filter: ${status} | Generated: ${
+        new Date().toISOString()
+      }`,
       "bucket_start,bucket_end,count,avg,median,std_dev",
     ];
     for (const b of summary.buckets) {
       if (b.belowFloor || b.count < EXPORT_FLOOR) {
-        rows.push(`${b.bucket.start.toISOString()},${b.bucket.end.toISOString()},<${EXPORT_FLOOR},,,`);
+        rows.push(
+          `${b.bucket.start.toISOString()},${b.bucket.end.toISOString()},<${EXPORT_FLOOR},,,`,
+        );
         continue;
       }
       rows.push([
@@ -2614,13 +3373,19 @@ export function ExportButton({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `vp-analytics-${metric}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `vp-analytics-${metric}-${
+      new Date().toISOString().slice(0, 10)
+    }.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
   return (
-    <button class="vpa-btn vpa-btn--primary" onClick={download} disabled={!summary}>
+    <button
+      class="vpa-btn vpa-btn--primary"
+      onClick={download}
+      disabled={!summary}
+    >
       ↓ Export CSV
     </button>
   );
@@ -2648,7 +3413,8 @@ git commit -m "feat(extension): chart (uPlot), zone coverage, CSV export with at
 
 ### Task 16: Load as Unpacked Extension and Verify End-to-End
 
-No automated test covers the Chrome runtime boundary - manual verification required.
+No automated test covers the Chrome runtime boundary - manual verification
+required.
 
 - [ ] **Step 1: Build in development mode**
 
@@ -2695,7 +3461,8 @@ cd extension && deno run -A build.ts
 1. Look for "⬡ Draw Zone" button on the map (near Google Maps zoom controls)
 2. Click Draw Zone - verify cursor changes, instruction tooltip appears
 3. Click 4-5 points to draw a polygon - click first point to close
-4. Verify: polygon appears on map in green, "Zone" scope tab activates in side panel
+4. Verify: polygon appears on map in green, "Zone" scope tab activates in side
+   panel
 5. Verify: coverage bar appears showing a percentage
 6. Verify: map pins inside zone get a green ring, pins outside dim
 
@@ -2703,7 +3470,8 @@ cd extension && deno run -A build.ts
 
 1. Note the listing count in the panel
 2. Switch viewpoint filter (e.g. "Active" → "Sold")
-3. Verify: listing count resets to 0; new listings accumulate from the new filter
+3. Verify: listing count resets to 0; new listings accumulate from the new
+   filter
 
 - [ ] **Step 9: Verify export**
 
@@ -2711,14 +3479,16 @@ cd extension && deno run -A build.ts
 2. Open the downloaded CSV - verify:
    - Attribution comment rows at the top
    - Columns: bucket_start, bucket_end, count, avg, median, std_dev
-   - Buckets with < 5 listings show `<5` in the count column and empty value columns
+   - Buckets with < 5 listings show `<5` in the count column and empty value
+     columns
    - No listing IDs or addresses
 
 - [ ] **Step 10: Verify multi-tab isolation**
 
 1. Open a second `viewpoint.ca/map` tab with a different filter (e.g. Sold)
 2. Switch between the two tabs
-3. Verify: side panel shows independent state for each tab (different counts, different filters)
+3. Verify: side panel shows independent state for each tab (different counts,
+   different filters)
 
 - [ ] **Step 11: Commit any bug fixes found during testing**
 
@@ -2733,6 +3503,7 @@ git add -A && git commit -m "fix(extension): integration test fixes"
 ### Task 17: GitHub Actions Build + Release
 
 **Files:**
+
 - Create: `.github/workflows/extension-build.yml`
 
 - [ ] **Step 1: Write `.github/workflows/extension-build.yml`**
@@ -2801,13 +3572,15 @@ git commit -m "ci: GitHub Actions build + release for extension"
 
 - [ ] **Step 3: Verify workflow runs on push**
 
-Push to `main` and check the Actions tab - verify the build job passes and produces an artifact.
+Push to `main` and check the Actions tab - verify the build job passes and
+produces an artifact.
 
 ---
 
 ### Task 18: Issue Tracking Link in Extension
 
 **Files:**
+
 - Modify: `extension/src/panel/components/Disclaimer.tsx`
 
 - [ ] **Step 1: Add issue link to Disclaimer**
@@ -2819,14 +3592,26 @@ import { h } from "preact";
 declare const __EXT_VERSION__: string;
 
 export function Disclaimer() {
-  const version = typeof __EXT_VERSION__ !== "undefined" ? __EXT_VERSION__ : "dev";
-  const issueUrl = `https://github.com/dafky2000/viewpoint-analytics-extension/issues/new?labels=bug&template=bug_report.md&body=%0A%0A**Extension+version:**+${version}`;
+  const version = typeof __EXT_VERSION__ !== "undefined"
+    ? __EXT_VERSION__
+    : "dev";
+  const issueUrl =
+    `https://github.com/dafky2000/viewpoint-analytics-extension/issues/new?labels=bug&template=bug_report.md&body=%0A%0A**Extension+version:**+${version}`;
 
   return (
     <div class="vpa-disclaimer">
-      This extension processes data your browser receives from ViewPoint.ca for personal use only. It does not store,
-      transmit, or redistribute listing data. Source: ViewPoint Realty, NSAR MLS® System and Province of Nova Scotia.
-      {" "}<a href={issueUrl} target="_blank" rel="noopener noreferrer" style={{ color: "oklch(40% 0.01 264)" }}>Report issue</a>
+      This extension processes data your browser receives from ViewPoint.ca for
+      personal use only. It does not store, transmit, or redistribute listing
+      data. Source: ViewPoint Realty, NSAR MLS® System and Province of Nova
+      Scotia.{" "}
+      <a
+        href={issueUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "oklch(40% 0.01 264)" }}
+      >
+        Report issue
+      </a>
     </div>
   );
 }
@@ -2865,55 +3650,65 @@ git commit -m "feat(extension): version + issue link injected via esbuild define
 
 **Spec coverage check:**
 
-| Spec section | Covered by |
-|---|---|
-| §1 No storage (except eulaAccepted) | Task 13 App.tsx; EulaGate uses `chrome.storage.local` only |
-| §2 Manifest MV3 + file layout | Task 1 |
-| §3 Fetch intercept → relay → panel | Tasks 9-10, 13 |
-| §4 Scope model (Viewport/Session/Zone) | Task 12 store.ts, App.tsx |
-| §4 lat/lng join from PropertyRow | Task 12 resolveCoordinates() |
-| §4 Multi-tab independent stores | Task 13 App.tsx tabStores ref map |
-| §4 Session clears on filter change | Task 13 App.tsx onMessage handler |
-| §5 Today-anchored buckets never partial | Task 4 bucket.ts, tests |
-| §5 Calendar-anchored partial detection | Task 4 bucket.ts, tests |
-| §5 Date field by status (list_dt/sold_dt) | Task 5 aggregate.ts makeDateExtractor() |
-| §6 All 5 metrics | Task 5 aggregate.ts makeExtractor() |
-| §6 Export floor ≥5 | Task 5 aggregate.ts belowFloor; Task 15 ExportButton |
-| §7 Draw Zone injected on map | Task 11 geofence-overlay.ts |
+| Spec section                                    | Covered by                                                        |
+| ----------------------------------------------- | ----------------------------------------------------------------- |
+| §1 No storage (except eulaAccepted)             | Task 13 App.tsx; EulaGate uses `chrome.storage.local` only        |
+| §2 Manifest MV3 + file layout                   | Task 1                                                            |
+| §3 Fetch intercept → relay → panel              | Tasks 9-10, 13                                                    |
+| §4 Scope model (Viewport/Session/Zone)          | Task 12 store.ts, App.tsx                                         |
+| §4 lat/lng join from PropertyRow                | Task 12 resolveCoordinates()                                      |
+| §4 Multi-tab independent stores                 | Task 13 App.tsx tabStores ref map                                 |
+| §4 Session clears on filter change              | Task 13 App.tsx onMessage handler                                 |
+| §5 Today-anchored buckets never partial         | Task 4 bucket.ts, tests                                           |
+| §5 Calendar-anchored partial detection          | Task 4 bucket.ts, tests                                           |
+| §5 Date field by status (list_dt/sold_dt)       | Task 5 aggregate.ts makeDateExtractor()                           |
+| §6 All 5 metrics                                | Task 5 aggregate.ts makeExtractor()                               |
+| §6 Export floor ≥5                              | Task 5 aggregate.ts belowFloor; Task 15 ExportButton              |
+| §7 Draw Zone injected on map                    | Task 11 geofence-overlay.ts                                       |
 | §7 Live editing (vertex drag, insert, collapse) | Task 11 `pm:edit`, `pm:vertexadded`, `pm:vertexremoved` listeners |
-| §7 Zone relay to panel + clear | Task 11 sendZone(); port.onMessage clear_zone |
-| §7 Coverage cells on map | Not yet in overlay - tracked below ✱ |
-| §8 Side panel all states | Tasks 12-15 |
-| §9 esbuild build + CSS tokens | Tasks 1, 12 |
-| §10 GitHub Actions release pipeline | Task 17 |
-| §11 EULA gate (personal use) | Task 13 EulaGate.tsx |
-| §11 Disclaimer always visible | Task 14 Disclaimer.tsx |
-| §11 Attribution in CSV | Task 15 ExportButton.tsx |
-| §11 Bucket floor in exports | Task 15 ExportButton.tsx |
-| §11 Issue tracking link | Task 18 |
+| §7 Zone relay to panel + clear                  | Task 11 sendZone(); port.onMessage clear_zone                     |
+| §7 Coverage cells on map                        | Not yet in overlay - tracked below ✱                              |
+| §8 Side panel all states                        | Tasks 12-15                                                       |
+| §9 esbuild build + CSS tokens                   | Tasks 1, 12                                                       |
+| §10 GitHub Actions release pipeline             | Task 17                                                           |
+| §11 EULA gate (personal use)                    | Task 13 EulaGate.tsx                                              |
+| §11 Disclaimer always visible                   | Task 14 Disclaimer.tsx                                            |
+| §11 Attribution in CSV                          | Task 15 ExportButton.tsx                                          |
+| §11 Bucket floor in exports                     | Task 15 ExportButton.tsx                                          |
+| §11 Issue tracking link                         | Task 18                                                           |
 
-**✱ Gap found:** Coverage cells (green bbox shading on the map, pin dimming outside zone) are described in §7 but not yet implemented in the geofence overlay. Add this to Task 11 or as Task 11b:
+**✱ Gap found:** Coverage cells (green bbox shading on the map, pin dimming
+outside zone) are described in §7 but not yet implemented in the geofence
+overlay. Add this to Task 11 or as Task 11b:
 
 ### Task 11b: Map Coverage Visualisation (Gap Fill)
 
 **Files:**
+
 - Modify: `extension/src/content/geofence-overlay.ts`
 
 - [ ] **Step 1: Add coverage layer and pin highlighting to geofence-overlay.ts**
 
-Add these functions inside `geofence-overlay.ts` and call them from `onPolygonCreated` and from the relay message handler:
+Add these functions inside `geofence-overlay.ts` and call them from
+`onPolygonCreated` and from the relay message handler:
 
 ```typescript
 // Coverage visualisation
 const coverageLayerGroup = L.layerGroup();
 
-export function updateCoverageOverlay(fetchedBboxes: BBox[], polygon: [number, number][]): void {
+export function updateCoverageOverlay(
+  fetchedBboxes: BBox[],
+  polygon: [number, number][],
+): void {
   if (!leafletMap) return;
   coverageLayerGroup.clearLayers();
   coverageLayerGroup.addTo(leafletMap);
 
   for (const bbox of fetchedBboxes) {
-    const bounds = L.latLngBounds([bbox.sw_lat, bbox.sw_lng], [bbox.ne_lat, bbox.ne_lng]);
+    const bounds = L.latLngBounds([bbox.sw_lat, bbox.sw_lng], [
+      bbox.ne_lat,
+      bbox.ne_lng,
+    ]);
     L.rectangle(bounds, {
       color: "rgba(22,199,132,0.4)",
       fillColor: "rgba(22,199,132,0.06)",
@@ -2925,9 +3720,11 @@ export function updateCoverageOverlay(fetchedBboxes: BBox[], polygon: [number, n
 }
 ```
 
-The relay forwards bbox info from each successful listings message to the overlay:
+The relay forwards bbox info from each successful listings message to the
+overlay:
 
-In `relay.ts`, after sending the listings message, also call the exported function:
+In `relay.ts`, after sending the listings message, also call the exported
+function:
 
 ```typescript
 import { updateCoverageOverlay } from "./geofence-overlay.ts";
@@ -2939,7 +3736,8 @@ if (parsed.bbox && currentPolygon) {
 }
 ```
 
-(Keep `fetchedBboxes` and `currentPolygon` as module-level arrays in relay.ts, cleared on filter change.)
+(Keep `fetchedBboxes` and `currentPolygon` as module-level arrays in relay.ts,
+cleared on filter change.)
 
 - [ ] **Step 2: Commit**
 

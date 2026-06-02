@@ -26,6 +26,8 @@ import { ZoneCoverage } from "./components/ZoneCoverage.tsx";
 import { ExportButton } from "./components/ExportButton.tsx";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { Disclaimer } from "./components/Disclaimer.tsx";
+import { OversizeNotice } from "./components/OversizeNotice.tsx";
+import { Spinner } from "./components/Spinner.tsx";
 import type { AggregateSummary } from "./lib/aggregate.ts";
 
 // Every metric is shown at once, stacked into one scrolling list - no tabs.
@@ -106,6 +108,16 @@ function App() {
         }
         return;
       }
+      if (msg.type === "tab_meta") {
+        const existing = tabStores.current.get(msg.tabId) ??
+          defaultTabStore(msg.tabId);
+        existing.host = msg.host;
+        tabStores.current.set(msg.tabId, existing);
+        if (msg.tabId === activeTabIdRef.current) {
+          setStore({ ...existing });
+        }
+        return;
+      }
       if (msg.type !== "msg") return;
       const { tabId, payload } = msg;
       if (!tabStores.current.has(tabId)) {
@@ -120,6 +132,8 @@ function App() {
         s.viewportListings = null;
         s.fetchedBboxes = [];
         s.searchStatus = "any";
+        s.oversizeBbox = null;
+        s.oversizeCount = null;
       }
 
       if (payload.type === "listings") {
@@ -131,6 +145,10 @@ function App() {
         s.viewportListings = payload.kind === "search" ? resolved : null;
         if (payload.kind === "search") s.searchStatus = payload.status;
         if (payload.bbox) s.fetchedBboxes = [...s.fetchedBboxes, payload.bbox];
+        // A successful fetch supersedes any prior oversize state.
+        s.oversizeBbox = null;
+        s.oversizeCount = null;
+        s.loading = false;
       }
 
       if (payload.type === "viewport_bbox") {
@@ -145,6 +163,21 @@ function App() {
         s.polygon = payload.polygon;
         if (isNewZone) s.scope = "zone";
         else if (!payload.polygon && s.scope === "zone") s.scope = "session";
+      }
+
+      if (payload.type === "oversize_bbox") {
+        // Oversize bbox: discard rows we never fetched, but preserve session +
+        // fetchedBboxes (they're earlier successful fetches, still valid).
+        // Clear viewportListings — its prior verbatim rows are stale for the new
+        // wider bbox and would mis-count the header chip otherwise.
+        s.oversizeBbox = payload.bbox;
+        s.oversizeCount = payload.count;
+        s.viewportListings = null;
+        s.loading = false;
+      }
+
+      if (payload.type === "loading_state") {
+        s.loading = payload.loading;
       }
 
       if (tabId === activeTabIdRef.current) {
@@ -272,6 +305,10 @@ function App() {
   // Zone tab selected but nothing drawn - prompt the user instead of falling
   // back to session data.
   const zoneNoPolygon = !!store && store.scope === "zone" && !store.polygon;
+  const viewportOversize = !!store?.oversizeBbox && store.scope === "viewport";
+  const sessionOrZoneOversize = !!store?.oversizeBbox &&
+    (store.scope === "session" || store.scope === "zone");
+  const showSpinner = !!store && listingCount === 0 && store.loading;
 
   return (
     <div
@@ -288,7 +325,7 @@ function App() {
           <strong style={{ fontSize: "11px" }}>
             See<span style={{ color: "var(--color-accent)" }}>Level</span>
           </strong>
-          {listingCount > 0 && (
+          {listingCount > 0 && !viewportOversize && (
             <span
               class="seelevel-label"
               style={{
@@ -299,6 +336,9 @@ function App() {
             >
               {listingCount} listings
             </span>
+          )}
+          {sessionOrZoneOversize && (
+            <OversizeNotice mode="badge" count={store!.oversizeCount!} />
           )}
           <span
             style={{
@@ -328,7 +368,11 @@ function App() {
         )}
       </div>
 
-      {!store ? <EmptyState /> : zoneNoPolygon
+      {!store
+        ? <EmptyState />
+        : viewportOversize
+        ? <OversizeNotice mode="block" count={store.oversizeCount!} />
+        : zoneNoPolygon
         ? (
           <div class="seelevel-empty">
             <div class="seelevel-empty__icon">⬡</div>
@@ -340,6 +384,8 @@ function App() {
             </div>
           </div>
         )
+        : showSpinner
+        ? <Spinner />
         : listingCount === 0
         ? <EmptyState />
         : (
@@ -403,7 +449,7 @@ function App() {
             </div>
           </>
         )}
-      <Disclaimer />
+      <Disclaimer host={store?.host ?? null} />
     </div>
   );
 }

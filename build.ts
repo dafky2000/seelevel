@@ -3,7 +3,9 @@ import { denoPlugins } from "jsr:@luca/esbuild-deno-loader@0.11";
 import { join } from "jsr:@std/path@1";
 
 const dir = new URL(".", import.meta.url).pathname;
-const manifest = JSON.parse(await Deno.readTextFile(join(dir, "manifest.json")));
+const manifest = JSON.parse(
+  await Deno.readTextFile(join(dir, "manifest.json")),
+);
 const version = manifest.version as string;
 
 // Plugin: resolve CSS imports from npm packages as plain text strings.
@@ -36,18 +38,24 @@ const npmCssPlugin: esbuild.Plugin = {
       }
 
       // Find the installed version in the npm cache
-      const denoDir = Deno.env.get("DENO_DIR") ?? join(Deno.env.get("HOME") ?? "", ".cache", "deno");
+      const denoDir = Deno.env.get("DENO_DIR") ??
+        join(Deno.env.get("HOME") ?? "", ".cache", "deno");
       const pkgCacheDir = join(denoDir, "npm", "registry.npmjs.org", pkgName);
       let version: string | undefined;
       try {
         for await (const entry of Deno.readDir(pkgCacheDir)) {
-          if (entry.isDirectory) { version = entry.name; break; }
+          if (entry.isDirectory) {
+            version = entry.name;
+            break;
+          }
         }
       } catch {
         return { errors: [{ text: `Cannot find npm cache for: ${pkgName}` }] };
       }
 
-      if (!version) return { errors: [{ text: `No version found for: ${pkgName}` }] };
+      if (!version) {
+        return { errors: [{ text: `No version found for: ${pkgName}` }] };
+      }
 
       const cssPath = join(pkgCacheDir, version, subPath);
       try {
@@ -68,7 +76,10 @@ const shared: esbuild.BuildOptions = {
   bundle: true,
   minify: isProd,
   sourcemap: isProd ? false : "inline",
-  plugins: [npmCssPlugin, ...denoPlugins({ configPath: join(dir, "deno.json") })],
+  plugins: [
+    npmCssPlugin,
+    ...denoPlugins({ configPath: join(dir, "deno.json") }),
+  ],
   loader: { ".css": "text" },
 };
 
@@ -100,6 +111,18 @@ await Promise.all([
     jsxImportSource: "preact",
     define: { __EXT_VERSION__: JSON.stringify(version) },
   }),
+  esbuild.build({
+    ...shared,
+    entryPoints: [join(dir, "src/content/ev/main.ts")],
+    outfile: join(dir, "build/content/ev/main.js"),
+    format: "iife",
+  }),
+  esbuild.build({
+    ...shared,
+    entryPoints: [join(dir, "src/content/ev/relay.ts")],
+    outfile: join(dir, "build/content/ev/relay.js"),
+    format: "iife",
+  }),
 ]);
 
 // Ensure output directories exist
@@ -107,16 +130,28 @@ await Deno.mkdir(join(dir, "build/panel"), { recursive: true });
 await Deno.mkdir(join(dir, "build/icons"), { recursive: true });
 
 // Copy static panel files
-await Deno.copyFile(join(dir, "src/panel/index.html"), join(dir, "build/panel/index.html"));
-await Deno.copyFile(join(dir, "src/panel/panel.css"), join(dir, "build/panel/panel.css"));
+await Deno.copyFile(
+  join(dir, "src/panel/index.html"),
+  join(dir, "build/panel/index.html"),
+);
+await Deno.copyFile(
+  join(dir, "src/panel/panel.css"),
+  join(dir, "build/panel/panel.css"),
+);
 
 // Copy icons
 for (const size of [16, 48, 128]) {
-  await Deno.copyFile(join(dir, `icons/icon${size}.png`), join(dir, `build/icons/icon${size}.png`));
+  await Deno.copyFile(
+    join(dir, `icons/icon${size}.png`),
+    join(dir, `build/icons/icon${size}.png`),
+  );
 }
 
 // Copy manifest
-await Deno.copyFile(join(dir, "manifest.json"), join(dir, "build/manifest.json"));
+await Deno.copyFile(
+  join(dir, "manifest.json"),
+  join(dir, "build/manifest.json"),
+);
 
 await esbuild.stop();
 
@@ -134,6 +169,8 @@ for (
     "build/content/relay.js",
     "build/background/sw.js",
     "build/panel/panel.js",
+    "build/content/ev/main.js",
+    "build/content/ev/relay.js",
   ]
 ) {
   const path = join(dir, rel);
@@ -161,5 +198,9 @@ if (isPackage) {
     throw new Error(`zip failed (exit ${code}) - is the 'zip' CLI installed?`);
   }
   const { size } = await Deno.stat(zipPath);
-  console.log(`Packaged ${zipName} (${(size / 1024).toFixed(0)} KB) - upload this to the Web Store.`);
+  console.log(
+    `Packaged ${zipName} (${
+      (size / 1024).toFixed(0)
+    } KB) - upload this to the Web Store.`,
+  );
 }

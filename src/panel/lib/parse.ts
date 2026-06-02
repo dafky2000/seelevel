@@ -1,4 +1,11 @@
-import type { BBox, ListingRow, PropertyRow, RawListing, RawProperty, SearchStatus } from "../../types.ts";
+import type {
+  BBox,
+  ListingRow,
+  PropertyRow,
+  RawListing,
+  RawProperty,
+  SearchStatus,
+} from "../../types.ts";
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -60,7 +67,12 @@ function parseBbox(searchUrl: string): BBox | null {
     if (!area) return null;
     const parts = area.split(",").map((s) => parseFloat(s.trim()));
     if (parts.length < 7 || parts.some(isNaN)) return null;
-    return { sw_lat: parts[3], sw_lng: parts[4], ne_lat: parts[5], ne_lng: parts[6] };
+    return {
+      sw_lat: parts[3],
+      sw_lng: parts[4],
+      ne_lat: parts[5],
+      ne_lng: parts[6],
+    };
   } catch {
     return null;
   }

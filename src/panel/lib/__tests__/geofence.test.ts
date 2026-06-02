@@ -1,4 +1,4 @@
-import { assertEquals, assertAlmostEquals } from "jsr:@std/assert@1";
+import { assertAlmostEquals, assertEquals } from "jsr:@std/assert@1";
 import { pointInPolygon, polygonArea } from "../geofence.ts";
 
 // Simple square: [0,0] → [0,1] → [1,1] → [1,0]  (lat, lng)
@@ -30,7 +30,12 @@ Deno.test("polygonArea - empty polygon is 0", () => {
 
 Deno.test("pointInPolygon - non-convex (L-shaped) polygon", () => {
   const L: [number, number][] = [
-    [0, 0], [0, 2], [1, 2], [1, 1], [2, 1], [2, 0],
+    [0, 0],
+    [0, 2],
+    [1, 2],
+    [1, 1],
+    [2, 1],
+    [2, 0],
   ];
   assertEquals(pointInPolygon(0.5, 0.5, L), true);
   assertEquals(pointInPolygon(1.5, 1.5, L), false);

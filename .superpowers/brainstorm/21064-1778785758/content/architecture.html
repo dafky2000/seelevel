@@ -1,356 +1,579 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="utf-8"/>
-<title>Architecture — ViewPoint Analytics Extension</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d0d1a; color: #e0e0e0; padding: 24px; }
-h2 { color: #fff; font-size: 18px; margin-bottom: 4px; }
-.subtitle { color: #666; font-size: 13px; margin-bottom: 28px; }
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture — ViewPoint Analytics Extension</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0d0d1a;
+        color: #e0e0e0;
+        padding: 24px;
+      }
+      h2 {
+        color: #fff;
+        font-size: 18px;
+        margin-bottom: 4px;
+      }
+      .subtitle {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 28px;
+      }
 
-.arch-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 20px;
-}
+      .arch-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 20px;
+      }
 
-.arch-col {
-  border-right: 1px solid rgba(255,255,255,0.08);
-  display: flex;
-  flex-direction: column;
-}
-.arch-col:last-child { border-right: none; }
+      .arch-col {
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        flex-direction: column;
+      }
+      .arch-col:last-child {
+        border-right: none;
+      }
 
-.arch-col-header {
-  padding: 12px 16px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.arch-col-header .icon { font-size: 14px; }
+      .arch-col-header {
+        padding: 12px 16px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .arch-col-header .icon {
+        font-size: 14px;
+      }
 
-.col-viewpoint { background: rgba(33, 150, 243, 0.06); }
-.col-viewpoint .arch-col-header { background: rgba(33, 150, 243, 0.12); color: #64b5f6; }
+      .col-viewpoint {
+        background: rgba(33, 150, 243, 0.06);
+      }
+      .col-viewpoint .arch-col-header {
+        background: rgba(33, 150, 243, 0.12);
+        color: #64b5f6;
+      }
 
-.col-content { background: rgba(245, 130, 49, 0.06); }
-.col-content .arch-col-header { background: rgba(245, 130, 49, 0.12); color: #ffa366; }
+      .col-content {
+        background: rgba(245, 130, 49, 0.06);
+      }
+      .col-content .arch-col-header {
+        background: rgba(245, 130, 49, 0.12);
+        color: #ffa366;
+      }
 
-.col-panel { background: rgba(67, 99, 216, 0.06); }
-.col-panel .arch-col-header { background: rgba(67, 99, 216, 0.12); color: #a0b0ff; }
+      .col-panel {
+        background: rgba(67, 99, 216, 0.06);
+      }
+      .col-panel .arch-col-header {
+        background: rgba(67, 99, 216, 0.12);
+        color: #a0b0ff;
+      }
 
-.arch-col-body { padding: 14px 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+      .arch-col-body {
+        padding: 14px 16px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
 
-.component {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 7px;
-  padding: 10px 12px;
-}
-.component-name { font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-.component-detail { font-size: 10px; color: #777; line-height: 1.5; }
-.component-tag {
-  display: inline-block;
-  font-size: 8px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  font-weight: 700;
-  margin-top: 5px;
-  margin-right: 3px;
-}
-.tag-ts { background: rgba(49,120,198,0.25); color: #7eb8f7; }
-.tag-preact { background: rgba(103,58,183,0.25); color: #ce93d8; }
-.tag-dano { background: rgba(22,199,132,0.2); color: #5de0b3; }
-.tag-leaflet { background: rgba(34,139,34,0.25); color: #81c784; }
-.tag-chrome { background: rgba(234,67,53,0.2); color: #ef9a9a; }
-.tag-chart { background: rgba(255,193,7,0.2); color: #ffd54f; }
+      .component {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 7px;
+        padding: 10px 12px;
+      }
+      .component-name {
+        font-size: 11px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 4px;
+      }
+      .component-detail {
+        font-size: 10px;
+        color: #777;
+        line-height: 1.5;
+      }
+      .component-tag {
+        display: inline-block;
+        font-size: 8px;
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-weight: 700;
+        margin-top: 5px;
+        margin-right: 3px;
+      }
+      .tag-ts {
+        background: rgba(49, 120, 198, 0.25);
+        color: #7eb8f7;
+      }
+      .tag-preact {
+        background: rgba(103, 58, 183, 0.25);
+        color: #ce93d8;
+      }
+      .tag-dano {
+        background: rgba(22, 199, 132, 0.2);
+        color: #5de0b3;
+      }
+      .tag-leaflet {
+        background: rgba(34, 139, 34, 0.25);
+        color: #81c784;
+      }
+      .tag-chrome {
+        background: rgba(234, 67, 53, 0.2);
+        color: #ef9a9a;
+      }
+      .tag-chart {
+        background: rgba(255, 193, 7, 0.2);
+        color: #ffd54f;
+      }
 
-/* arrows between columns */
-.arrows-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0;
-  padding: 0 8px;
-  margin-bottom: 20px;
-  position: relative;
-}
-.arrow-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 0 16px;
-}
-.arrow-line {
-  height: 2px;
-  width: 100%;
-  background: linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.3), rgba(255,255,255,0.1));
-  position: relative;
-}
-.arrow-line::after {
-  content: '→';
-  position: absolute;
-  right: -8px;
-  top: -9px;
-  font-size: 14px;
-  color: rgba(255,255,255,0.4);
-}
-.arrow-label { font-size: 9px; color: #555; text-align: center; }
+      /* arrows between columns */
+      .arrows-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0;
+        padding: 0 8px;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      .arrow-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 0 16px;
+      }
+      .arrow-line {
+        height: 2px;
+        width: 100%;
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0.3),
+          rgba(255, 255, 255, 0.1)
+        );
+        position: relative;
+      }
+      .arrow-line::after {
+        content: "→";
+        position: absolute;
+        right: -8px;
+        top: -9px;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.4);
+      }
+      .arrow-label {
+        font-size: 9px;
+        color: #555;
+        text-align: center;
+      }
 
-/* data flow diagram */
-.flow {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-}
-.flow-title { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
-.flow-steps {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex-wrap: wrap;
-}
-.flow-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-.flow-step-box {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 10px;
-  font-weight: 600;
-  color: #ccc;
-  text-align: center;
-  white-space: nowrap;
-}
-.flow-step-sub { font-size: 8px; color: #555; text-align: center; max-width: 90px; line-height: 1.3; }
-.flow-arrow { padding: 0 6px; color: #444; font-size: 16px; align-self: flex-start; margin-top: 8px; }
+      /* data flow diagram */
+      .flow {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+      }
+      .flow-title {
+        font-size: 10px;
+        font-weight: 700;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 14px;
+      }
+      .flow-steps {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        flex-wrap: wrap;
+      }
+      .flow-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+      }
+      .flow-step-box {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 10px;
+        font-weight: 600;
+        color: #ccc;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .flow-step-sub {
+        font-size: 8px;
+        color: #555;
+        text-align: center;
+        max-width: 90px;
+        line-height: 1.3;
+      }
+      .flow-arrow {
+        padding: 0 6px;
+        color: #444;
+        font-size: 16px;
+        align-self: flex-start;
+        margin-top: 8px;
+      }
 
-.flow-step-box.highlight-orange { border-color: rgba(245,130,49,0.4); color: #ffa366; background: rgba(245,130,49,0.08); }
-.flow-step-box.highlight-blue { border-color: rgba(67,99,216,0.4); color: #a0b0ff; background: rgba(67,99,216,0.08); }
-.flow-step-box.highlight-green { border-color: rgba(22,199,132,0.4); color: #5de0b3; background: rgba(22,199,132,0.08); }
-.flow-step-box.highlight-vp { border-color: rgba(33,150,243,0.4); color: #64b5f6; background: rgba(33,150,243,0.08); }
+      .flow-step-box.highlight-orange {
+        border-color: rgba(245, 130, 49, 0.4);
+        color: #ffa366;
+        background: rgba(245, 130, 49, 0.08);
+      }
+      .flow-step-box.highlight-blue {
+        border-color: rgba(67, 99, 216, 0.4);
+        color: #a0b0ff;
+        background: rgba(67, 99, 216, 0.08);
+      }
+      .flow-step-box.highlight-green {
+        border-color: rgba(22, 199, 132, 0.4);
+        color: #5de0b3;
+        background: rgba(22, 199, 132, 0.08);
+      }
+      .flow-step-box.highlight-vp {
+        border-color: rgba(33, 150, 243, 0.4);
+        color: #64b5f6;
+        background: rgba(33, 150, 243, 0.08);
+      }
 
-/* manifest section */
-.manifest-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.manifest-box {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 8px;
-  padding: 12px 14px;
-}
-.manifest-box-title { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-.manifest-item { font-size: 10px; color: #bbb; padding: 2px 0; display: flex; align-items: flex-start; gap: 6px; line-height: 1.4; }
-.manifest-item::before { content: '·'; color: #444; flex-shrink: 0; }
-.manifest-item code { background: rgba(255,255,255,0.07); padding: 0 4px; border-radius: 3px; font-size: 9px; color: #a0b0ff; font-family: monospace; }
+      /* manifest section */
+      .manifest-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .manifest-box {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 8px;
+        padding: 12px 14px;
+      }
+      .manifest-box-title {
+        font-size: 10px;
+        font-weight: 700;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 8px;
+      }
+      .manifest-item {
+        font-size: 10px;
+        color: #bbb;
+        padding: 2px 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        line-height: 1.4;
+      }
+      .manifest-item::before {
+        content: "·";
+        color: #444;
+        flex-shrink: 0;
+      }
+      .manifest-item code {
+        background: rgba(255, 255, 255, 0.07);
+        padding: 0 4px;
+        border-radius: 3px;
+        font-size: 9px;
+        color: #a0b0ff;
+        font-family: monospace;
+      }
 
-/* file tree */
-.tree {
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 10px;
-  line-height: 1.7;
-  color: #888;
-}
-.tree .dir { color: #a0b0ff; font-weight: 600; }
-.tree .file { color: #ccc; }
-.tree .comment { color: #444; }
-.tree .highlight { color: #5de0b3; }
+      /* file tree */
+      .tree {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-family: "Fira Code", "Cascadia Code", monospace;
+        font-size: 10px;
+        line-height: 1.7;
+        color: #888;
+      }
+      .tree .dir {
+        color: #a0b0ff;
+        font-weight: 600;
+      }
+      .tree .file {
+        color: #ccc;
+      }
+      .tree .comment {
+        color: #444;
+      }
+      .tree .highlight {
+        color: #5de0b3;
+      }
 
-.section-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: #555;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 10px;
-  margin-top: 20px;
-}
-</style>
-</head>
-<body>
+      .section-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Extension Architecture</h2>
+    <p class="subtitle">
+      ViewPoint Analytics — Chrome MV3, native Side Panel, intercept-only, no
+      storage
+    </p>
 
-<h2>Extension Architecture</h2>
-<p class="subtitle">ViewPoint Analytics — Chrome MV3, native Side Panel, intercept-only, no storage</p>
-
-<!-- Three-column overview -->
-<div class="arch-grid">
-  <div class="arch-col col-viewpoint">
-    <div class="arch-col-header"><span class="icon">🌐</span> viewpoint.ca page</div>
-    <div class="arch-col-body">
-      <div class="component">
-        <div class="component-name">Google Maps + Listings</div>
-        <div class="component-detail">The live page. Makes XHR/fetch calls to <code style="font-size:9px;color:#a0b0ff;background:rgba(255,255,255,0.07);padding:0 3px;border-radius:2px">/api/v2/listing/search</code>. Results rendered in the listing sidebar and map pins.</div>
+    <!-- Three-column overview -->
+    <div class="arch-grid">
+      <div class="arch-col col-viewpoint">
+        <div class="arch-col-header">
+          <span class="icon">🌐</span> viewpoint.ca page
+        </div>
+        <div class="arch-col-body">
+          <div class="component">
+            <div class="component-name">Google Maps + Listings</div>
+            <div class="component-detail">
+              The live page. Makes XHR/fetch calls to <code
+                style="font-size: 9px; color: #a0b0ff; background: rgba(255, 255, 255, 0.07); padding: 0 3px; border-radius: 2px"
+              >/api/v2/listing/search</code>. Results rendered in the listing
+              sidebar and map pins.
+            </div>
+          </div>
+          <div class="component">
+            <div class="component-name">window.fetch (patched)</div>
+            <div class="component-detail">
+              Content script injects into MAIN world and wraps fetch. Intercepts
+              search API responses before the page processes them — zero visual
+              side-effects.
+            </div>
+            <span class="component-tag tag-ts">TS</span>
+            <span class="component-tag tag-chrome">MAIN world</span>
+          </div>
+        </div>
       </div>
-      <div class="component">
-        <div class="component-name">window.fetch (patched)</div>
-        <div class="component-detail">Content script injects into MAIN world and wraps fetch. Intercepts search API responses before the page processes them — zero visual side-effects.</div>
-        <span class="component-tag tag-ts">TS</span>
-        <span class="component-tag tag-chrome">MAIN world</span>
-      </div>
-    </div>
-  </div>
 
-  <div class="arch-col col-content">
-    <div class="arch-col-header"><span class="icon">⚙️</span> content script</div>
-    <div class="arch-col-body">
-      <div class="component">
-        <div class="component-name">fetch-interceptor.ts</div>
-        <div class="component-detail">Patches window.fetch in MAIN world. Detects listing search API calls, parses response with reused <code style="font-size:9px;color:#a0b0ff;background:rgba(255,255,255,0.07);padding:0 3px;border-radius:2px">parseSearchResponse()</code> logic. Posts ListingRow batches to ISOLATED world via custom event.</div>
-        <span class="component-tag tag-ts">TS</span>
+      <div class="arch-col col-content">
+        <div class="arch-col-header">
+          <span class="icon">⚙️</span> content script
+        </div>
+        <div class="arch-col-body">
+          <div class="component">
+            <div class="component-name">fetch-interceptor.ts</div>
+            <div class="component-detail">
+              Patches window.fetch in MAIN world. Detects listing search API
+              calls, parses response with reused <code
+                style="font-size: 9px; color: #a0b0ff; background: rgba(255, 255, 255, 0.07); padding: 0 3px; border-radius: 2px"
+              >parseSearchResponse()</code> logic. Posts ListingRow batches to
+              ISOLATED world via custom event.
+            </div>
+            <span class="component-tag tag-ts">TS</span>
+          </div>
+          <div class="component">
+            <div class="component-name">relay.ts</div>
+            <div class="component-detail">
+              Runs in ISOLATED world. Listens for intercepted batches, detects
+              active status filter from URL/DOM, forwards to side panel via
+              <code
+                style="font-size: 9px; color: #a0b0ff; background: rgba(255, 255, 255, 0.07); padding: 0 3px; border-radius: 2px"
+              >chrome.runtime.sendMessage</code>.
+            </div>
+            <span class="component-tag tag-ts">TS</span>
+            <span class="component-tag tag-chrome">ISOLATED</span>
+          </div>
+          <div class="component">
+            <div class="component-name">geofence-overlay.ts</div>
+            <div class="component-detail">
+              Injects "Draw Zone" button onto the viewpoint map toolbar. On
+              click, activates Leaflet canvas overlay for polygon drawing
+              (Leaflet + Geoman, bundled). Sends completed polygon coords to
+              relay.
+            </div>
+            <span class="component-tag tag-ts">TS</span>
+            <span class="component-tag tag-leaflet">Leaflet + Geoman</span>
+          </div>
+        </div>
       </div>
-      <div class="component">
-        <div class="component-name">relay.ts</div>
-        <div class="component-detail">Runs in ISOLATED world. Listens for intercepted batches, detects active status filter from URL/DOM, forwards to side panel via <code style="font-size:9px;color:#a0b0ff;background:rgba(255,255,255,0.07);padding:0 3px;border-radius:2px">chrome.runtime.sendMessage</code>.</div>
-        <span class="component-tag tag-ts">TS</span>
-        <span class="component-tag tag-chrome">ISOLATED</span>
-      </div>
-      <div class="component">
-        <div class="component-name">geofence-overlay.ts</div>
-        <div class="component-detail">Injects "Draw Zone" button onto the viewpoint map toolbar. On click, activates Leaflet canvas overlay for polygon drawing (Leaflet + Geoman, bundled). Sends completed polygon coords to relay.</div>
-        <span class="component-tag tag-ts">TS</span>
-        <span class="component-tag tag-leaflet">Leaflet + Geoman</span>
-      </div>
-    </div>
-  </div>
 
-  <div class="arch-col col-panel">
-    <div class="arch-col-header"><span class="icon">📊</span> side panel</div>
-    <div class="arch-col-body">
-      <div class="component">
-        <div class="component-name">App.tsx (Preact root)</div>
-        <div class="component-detail">Receives listing batches via <code style="font-size:9px;color:#a0b0ff;background:rgba(255,255,255,0.07);padding:0 3px;border-radius:2px">chrome.runtime.onMessage</code>. Holds all session listings in a <code style="font-size:9px;color:#a0b0ff;background:rgba(255,255,255,0.07);padding:0 3px;border-radius:2px">useRef</code> accumulator. Closing the panel = data gone.</div>
-        <span class="component-tag tag-preact">Preact</span>
-        <span class="component-tag tag-dano">@dano/styles</span>
+      <div class="arch-col col-panel">
+        <div class="arch-col-header">
+          <span class="icon">📊</span> side panel
+        </div>
+        <div class="arch-col-body">
+          <div class="component">
+            <div class="component-name">App.tsx (Preact root)</div>
+            <div class="component-detail">
+              Receives listing batches via <code
+                style="font-size: 9px; color: #a0b0ff; background: rgba(255, 255, 255, 0.07); padding: 0 3px; border-radius: 2px"
+              >chrome.runtime.onMessage</code>. Holds all session listings in a
+              <code
+                style="font-size: 9px; color: #a0b0ff; background: rgba(255, 255, 255, 0.07); padding: 0 3px; border-radius: 2px"
+              >useRef</code> accumulator. Closing the panel = data gone.
+            </div>
+            <span class="component-tag tag-preact">Preact</span>
+            <span class="component-tag tag-dano">@dano/styles</span>
+          </div>
+          <div class="component">
+            <div class="component-name">Analytics engine</div>
+            <div class="component-detail">
+              Pure functions: filter by geofence polygon (point-in-polygon),
+              filter by time window, compute avg/median/stddev/count/DOM. Runs
+              in-memory on every update.
+            </div>
+            <span class="component-tag tag-ts">TS</span>
+          </div>
+          <div class="component">
+            <div class="component-name">Charts + Export</div>
+            <div class="component-detail">
+              Time-series charts (lightweight canvas lib — uPlot or Chart.js).
+              Metric tabs: Avg Price, Volume, DOM, $/sqft. Export button
+              downloads aggregated buckets as CSV — no raw listing data.
+            </div>
+            <span class="component-tag tag-chart">uPlot</span>
+            <span class="component-tag tag-dano">@dano/ui tokens</span>
+          </div>
+        </div>
       </div>
-      <div class="component">
-        <div class="component-name">Analytics engine</div>
-        <div class="component-detail">Pure functions: filter by geofence polygon (point-in-polygon), filter by time window, compute avg/median/stddev/count/DOM. Runs in-memory on every update.</div>
-        <span class="component-tag tag-ts">TS</span>
+    </div>
+
+    <!-- Data flow -->
+    <div class="section-label">Data flow</div>
+    <div class="flow">
+      <div class="flow-title">Listing intercept → aggregation → chart</div>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-box highlight-vp">viewpoint XHR</div>
+          <div class="flow-step-sub">/api/v2/listing/search response</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-step-box highlight-orange">fetch patch</div>
+          <div class="flow-step-sub">MAIN world, parseSearchResponse()</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-step-box highlight-orange">CustomEvent</div>
+          <div class="flow-step-sub">cross-world bridge (MAIN→ISOLATED)</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-step-box highlight-orange">relay.ts</div>
+          <div class="flow-step-sub">+ status from URL/DOM</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-step-box highlight-blue">sendMessage</div>
+          <div class="flow-step-sub">chrome runtime</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-step-box highlight-blue">App.tsx</div>
+          <div class="flow-step-sub">accumulates in useRef</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-step-box highlight-green">aggregate()</div>
+          <div class="flow-step-sub">geofence filter + time window</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-step-box highlight-green">charts</div>
+          <div class="flow-step-sub">renders in side panel</div>
+        </div>
       </div>
-      <div class="component">
-        <div class="component-name">Charts + Export</div>
-        <div class="component-detail">Time-series charts (lightweight canvas lib — uPlot or Chart.js). Metric tabs: Avg Price, Volume, DOM, $/sqft. Export button downloads aggregated buckets as CSV — no raw listing data.</div>
-        <span class="component-tag tag-chart">uPlot</span>
-        <span class="component-tag tag-dano">@dano/ui tokens</span>
+    </div>
+
+    <!-- Manifest permissions -->
+    <div class="section-label">Manifest (permissions)</div>
+    <div class="manifest-grid">
+      <div class="manifest-box">
+        <div class="manifest-box-title">Permissions requested</div>
+        <div class="manifest-item">
+          <code>sidePanel</code> — native Chrome side panel
+        </div>
+        <div class="manifest-item">
+          <code>activeTab</code> — only needed to detect viewpoint tab
+        </div>
+        <div class="manifest-item">
+          <code>scripting</code> — inject content script into MAIN world
+        </div>
+      </div>
+      <div class="manifest-box">
+        <div class="manifest-box-title">Host permissions</div>
+        <div class="manifest-item">
+          <code>*://*.viewpoint.ca/*</code> — content script injection + fetch
+          intercept
+        </div>
+        <div style="margin-top: 8px; font-size: 10px; color: #555">
+          No <code
+            style="font-size: 9px; color: #666; background: rgba(255, 255, 255, 0.05); padding: 0 3px; border-radius: 2px"
+          >storage</code>, <code
+            style="font-size: 9px; color: #666; background: rgba(255, 255, 255, 0.05); padding: 0 3px; border-radius: 2px"
+          >cookies</code>, <code
+            style="font-size: 9px; color: #666; background: rgba(255, 255, 255, 0.05); padding: 0 3px; border-radius: 2px"
+          >webRequest</code>, or <code
+            style="font-size: 9px; color: #666; background: rgba(255, 255, 255, 0.05); padding: 0 3px; border-radius: 2px"
+          >tabs</code> permissions. Chrome Web Store reviewers will see a
+          minimal footprint.
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- Data flow -->
-<div class="section-label">Data flow</div>
-<div class="flow">
-  <div class="flow-title">Listing intercept → aggregation → chart</div>
-  <div class="flow-steps">
-    <div class="flow-step">
-      <div class="flow-step-box highlight-vp">viewpoint XHR</div>
-      <div class="flow-step-sub">/api/v2/listing/search response</div>
-    </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-step">
-      <div class="flow-step-box highlight-orange">fetch patch</div>
-      <div class="flow-step-sub">MAIN world, parseSearchResponse()</div>
-    </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-step">
-      <div class="flow-step-box highlight-orange">CustomEvent</div>
-      <div class="flow-step-sub">cross-world bridge (MAIN→ISOLATED)</div>
-    </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-step">
-      <div class="flow-step-box highlight-orange">relay.ts</div>
-      <div class="flow-step-sub">+ status from URL/DOM</div>
-    </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-step">
-      <div class="flow-step-box highlight-blue">sendMessage</div>
-      <div class="flow-step-sub">chrome runtime</div>
-    </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-step">
-      <div class="flow-step-box highlight-blue">App.tsx</div>
-      <div class="flow-step-sub">accumulates in useRef</div>
-    </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-step">
-      <div class="flow-step-box highlight-green">aggregate()</div>
-      <div class="flow-step-sub">geofence filter + time window</div>
-    </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-step">
-      <div class="flow-step-box highlight-green">charts</div>
-      <div class="flow-step-sub">renders in side panel</div>
-    </div>
-  </div>
-</div>
-
-<!-- Manifest permissions -->
-<div class="section-label">Manifest (permissions)</div>
-<div class="manifest-grid">
-  <div class="manifest-box">
-    <div class="manifest-box-title">Permissions requested</div>
-    <div class="manifest-item"><code>sidePanel</code> — native Chrome side panel</div>
-    <div class="manifest-item"><code>activeTab</code> — only needed to detect viewpoint tab</div>
-    <div class="manifest-item"><code>scripting</code> — inject content script into MAIN world</div>
-  </div>
-  <div class="manifest-box">
-    <div class="manifest-box-title">Host permissions</div>
-    <div class="manifest-item"><code>*://*.viewpoint.ca/*</code> — content script injection + fetch intercept</div>
-    <div style="margin-top:8px;font-size:10px;color:#555">No <code style="font-size:9px;color:#666;background:rgba(255,255,255,0.05);padding:0 3px;border-radius:2px">storage</code>, <code style="font-size:9px;color:#666;background:rgba(255,255,255,0.05);padding:0 3px;border-radius:2px">cookies</code>, <code style="font-size:9px;color:#666;background:rgba(255,255,255,0.05);padding:0 3px;border-radius:2px">webRequest</code>, or <code style="font-size:9px;color:#666;background:rgba(255,255,255,0.05);padding:0 3px;border-radius:2px">tabs</code> permissions. Chrome Web Store reviewers will see a minimal footprint.</div>
-  </div>
-</div>
-
-<!-- File layout -->
-<div class="section-label">Extension file layout</div>
-<div class="tree">
-<span class="dir">extension/</span>
-  manifest.json                   <span class="comment">MV3, sidePanel + scripting + activeTab</span>
-  <span class="dir">src/</span>
-    <span class="dir">content/</span>
-      fetch-interceptor.ts        <span class="comment">MAIN world — patches window.fetch</span>
-      relay.ts                    <span class="comment">ISOLATED world — bridges to side panel</span>
-      <span class="highlight">geofence-overlay.ts</span>         <span class="comment">injects Draw Zone btn + Leaflet overlay</span>
-    <span class="dir">panel/</span>
-      index.html                  <span class="comment">side panel shell</span>
-      App.tsx                     <span class="comment">Preact root, message listener, accumulator</span>
+    <!-- File layout -->
+    <div class="section-label">Extension file layout</div>
+    <div class="tree">
+      <span class="dir">extension/</span>
+      manifest.json <span class="comment"
+      >MV3, sidePanel + scripting + activeTab</span>
+      <span class="dir">src/</span>
+      <span class="dir">content/</span>
+      fetch-interceptor.ts <span class="comment"
+      >MAIN world — patches window.fetch</span>
+      relay.ts <span class="comment"
+      >ISOLATED world — bridges to side panel</span>
+      <span class="highlight">geofence-overlay.ts</span> <span class="comment"
+      >injects Draw Zone btn + Leaflet overlay</span>
+      <span class="dir">panel/</span>
+      index.html <span class="comment">side panel shell</span>
+      App.tsx <span class="comment"
+      >Preact root, message listener, accumulator</span>
       <span class="dir">components/</span>
-        MetricTabs.tsx
-        TimeRangePicker.tsx
-        StatsColumn.tsx
-        SparklineChart.tsx
-        ExportButton.tsx
+      MetricTabs.tsx TimeRangePicker.tsx StatsColumn.tsx SparklineChart.tsx
+      ExportButton.tsx
       <span class="dir">lib/</span>
-        aggregate.ts              <span class="comment">point-in-polygon, time bucket, avg/stddev/DOM</span>
-        <span class="highlight">parse.ts</span>                    <span class="comment">reused from scrapers/viewpoint/client.ts</span>
-        geofence.ts               <span class="comment">polygon math from geofence-editor logic</span>
-  <span class="dir">build/</span>                          <span class="comment">esbuild output — what gets loaded into Chrome</span>
-  build.ts                        <span class="comment">esbuild script (Deno)</span>
-</div>
-
-</body>
+      aggregate.ts <span class="comment"
+      >point-in-polygon, time bucket, avg/stddev/DOM</span>
+      <span class="highlight">parse.ts</span> <span class="comment"
+      >reused from scrapers/viewpoint/client.ts</span>
+      geofence.ts <span class="comment"
+      >polygon math from geofence-editor logic</span>
+      <span class="dir">build/</span> <span class="comment"
+      >esbuild output — what gets loaded into Chrome</span>
+      build.ts <span class="comment">esbuild script (Deno)</span>
+    </div>
+  </body>
 </html>

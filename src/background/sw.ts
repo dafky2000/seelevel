@@ -5,6 +5,10 @@ import type { PanelDown, PanelUp, RelayDown, RelayUp } from "../types.ts";
 // content-script load. SW routes panel↔content messages through these.
 const relayPorts = new Map<number, chrome.runtime.Port>();
 
+// The host (e.g. "viewpoint.ca") for each connected relay tab, derived from
+// port.sender?.url without requiring the `tabs` permission.
+const hostByTab = new Map<number, string>();
+
 // At most one panel port - the side panel is global, not per-tab. Null while
 // the side panel is closed; SW silently drops relay→panel messages then.
 let panelPort: chrome.runtime.Port | null = null;
@@ -28,6 +32,11 @@ chrome.runtime.onConnect.addListener((port) => {
     if (tabId === undefined) return; // not a tab-scoped connection - ignore
     relayPorts.set(tabId, port);
 
+    try {
+      const url = port.sender?.url;
+      if (url) hostByTab.set(tabId, new URL(url).host);
+    } catch { /* ignore malformed URL */ }
+
     if (panelPort) {
       if (port.name === "relay") {
         // Genuine new page load: panel may hold stale state from the previous
@@ -37,6 +46,13 @@ chrome.runtime.onConnect.addListener((port) => {
         safePost(panelPort, { type: "tab_loaded", tabId } satisfies PanelDown);
       }
       safePost(port, { type: "panel_opened" } satisfies RelayDown);
+      const host = hostByTab.get(tabId);
+      if (host) {
+        safePost(
+          panelPort,
+          { type: "tab_meta", tabId, host } satisfies PanelDown,
+        );
+      }
     }
 
     port.onMessage.addListener((msg: RelayUp) => {
@@ -50,6 +66,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
     port.onDisconnect.addListener(() => {
       relayPorts.delete(tabId);
+      hostByTab.delete(tabId);
     });
     return;
   }
@@ -63,6 +80,11 @@ chrome.runtime.onConnect.addListener((port) => {
     // no-op reset of empty state).
     for (const relay of relayPorts.values()) {
       safePost(relay, { type: "panel_opened" } satisfies RelayDown);
+    }
+    // Seed the freshly-mounted panel with the host for every already-connected
+    // relay tab so Disclaimer can render site-specific copy immediately.
+    for (const [tabId, host] of hostByTab) {
+      safePost(port, { type: "tab_meta", tabId, host } satisfies PanelDown);
     }
 
     port.onMessage.addListener((msg: PanelUp) => {

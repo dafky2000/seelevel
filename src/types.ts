@@ -63,7 +63,9 @@ export type ContentToPanel =
   }
   | { type: "zone"; polygon: [number, number][] | null }
   | { type: "viewport_bbox"; bbox: BBox }
-  | { type: "clear_session" };
+  | { type: "clear_session" }
+  | { type: "oversize_bbox"; bbox: BBox; count: number }
+  | { type: "loading_state"; loading: boolean };
 
 // Messages from side panel → content scripts (semantic payloads, wrapped in
 // a PanelUp envelope by the panel before delivery to the SW broker).
@@ -89,6 +91,7 @@ export type PanelUp = { type: "msg"; tabId: number; payload: PanelToContent };
 // SW → panel
 export type PanelDown =
   | { type: "tab_loaded"; tabId: number }
+  | { type: "tab_meta"; tabId: number; host: string }
   | { type: "msg"; tabId: number; payload: ContentToPanel };
 
 // Per-tab state in the side panel (in Preact memory only, never persisted).
@@ -108,6 +111,16 @@ export interface TabStore {
   alignmentMode: AlignmentMode;
   anchorDayOfWeek: number; // 0=Sun … 6=Sat; default 1=Mon
   anchorDayOfMonth: number; // 1-31; default 1
+  // EV adapter oversize state: when the most recent slim sibling reports
+  // count > 2000, oversizeBbox/Count are populated and viewportListings is
+  // cleared. Reset by any successful "listings" payload or clear_session.
+  oversizeBbox: BBox | null;
+  oversizeCount: number | null;
+  // Slim sibling in flight — drives the panel's spinner.
+  loading: boolean;
+  // The host of the tab's content-script sender (e.g. "viewpoint.ca").
+  // Null until the SW sends a tab_meta envelope for this tab.
+  host: string | null;
 }
 
 export function defaultTabStore(tabId: number): TabStore {
@@ -124,6 +137,10 @@ export function defaultTabStore(tabId: number): TabStore {
     alignmentMode: "today",
     anchorDayOfWeek: 1,
     anchorDayOfMonth: 1,
+    oversizeBbox: null,
+    oversizeCount: null,
+    loading: false,
+    host: null,
   };
 }
 

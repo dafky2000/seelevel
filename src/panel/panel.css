@@ -370,3 +370,35 @@ body {
   color: var(--color-muted);
   line-height: 1.6;
 }
+
+/* Loading spinner — shown when a scope is empty and a sibling fetch is in
+   flight. Centered inside the seelevel-empty block layout. */
+.seelevel-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: seelevel-spin 0.85s linear infinite;
+  margin: 0 auto 10px;
+}
+@keyframes seelevel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Oversize badge — shown in the header row when a slim sibling reports
+   count > 2000 in session/zone scope. The block mode reuses .seelevel-empty. */
+.seelevel-oversize-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: oklch(30% 0.13 50 / 0.5);
+  color: var(--color-sun);
+  border: 1px solid oklch(40% 0.13 50 / 0.6);
+}

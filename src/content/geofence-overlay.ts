@@ -169,6 +169,12 @@ function startDraw(): void {
   document.addEventListener("click", onDraftClick, true);
   document.addEventListener("mousemove", onDraftMove, true);
   document.addEventListener("keydown", onDraftKey, true);
+  // Suppress click/dblclick/contextmenu that land over the map so Google
+  // Maps' marker popups, double-click zoom and context menu don't fire while
+  // drawing. mousedown/move/wheel pass through, so pan, drag and scroll-wheel
+  // zoom still work normally.
+  document.addEventListener("dblclick", onSuppressOverMap, true);
+  document.addEventListener("contextmenu", onSuppressOverMap, true);
 }
 
 function endDraw(commit: boolean): void {
@@ -178,6 +184,8 @@ function endDraw(commit: boolean): void {
   document.removeEventListener("click", onDraftClick, true);
   document.removeEventListener("mousemove", onDraftMove, true);
   document.removeEventListener("keydown", onDraftKey, true);
+  document.removeEventListener("dblclick", onSuppressOverMap, true);
+  document.removeEventListener("contextmenu", onSuppressOverMap, true);
   mouseDownAt = null;
 
   for (const layer of [draftShape, draftHint, draftStartDot]) {
@@ -221,8 +229,19 @@ function onDraftMove(e: MouseEvent): void {
   );
 }
 
+function onSuppressOverMap(e: Event): void {
+  if (!overMap(e as MouseEvent)) return;
+  e.stopPropagation();
+  e.preventDefault();
+}
+
 function onDraftClick(e: MouseEvent): void {
   if (!leafletMap || !overMap(e)) return;
+  // Over the map area: suppress propagation in EVERY path (vertex placement,
+  // pan-drag-end, duplicate-tap) so Google Maps' click handlers — marker
+  // popups, listing-cluster expansion, etc. — never fire while drawing.
+  e.stopPropagation();
+  e.preventDefault();
   // A click also fires at the end of a pan-drag - ignore it so panning the map
   // mid-draw never drops a stray vertex.
   if (mouseDownAt) {

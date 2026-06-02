@@ -1,29 +1,47 @@
 # Permissions Minimization Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or
+> superpowers:executing-plans to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Drop `activeTab`, `storage`, and `host_permissions` from `manifest.json` so SeeLevel can clear Chrome Web Store review faster, while preserving every existing user-facing behaviour.
+**Goal:** Drop `activeTab`, `storage`, and `host_permissions` from
+`manifest.json` so SeeLevel can clear Chrome Web Store review faster, while
+preserving every existing user-facing behaviour.
 
-**Architecture:** Replace `chrome.runtime.sendMessage` broadcasts and `chrome.tabs.sendMessage` calls with a port-broker topology — content scripts and the side panel each open one long-lived `chrome.runtime.connect` port to the background SW, which routes messages by `tabId`. EULA acknowledgement becomes per-session React state instead of `chrome.storage.local`.
+**Architecture:** Replace `chrome.runtime.sendMessage` broadcasts and
+`chrome.tabs.sendMessage` calls with a port-broker topology — content scripts
+and the side panel each open one long-lived `chrome.runtime.connect` port to the
+background SW, which routes messages by `tabId`. EULA acknowledgement becomes
+per-session React state instead of `chrome.storage.local`.
 
-**Tech Stack:** Deno + esbuild + Preact, Chrome MV3 extension APIs, no test framework changes (existing `jsr:@std/assert` Deno tests in `src/panel/lib/__tests__/` continue to pass; messaging is verified by smoke test as per repo convention).
+**Tech Stack:** Deno + esbuild + Preact, Chrome MV3 extension APIs, no test
+framework changes (existing `jsr:@std/assert` Deno tests in
+`src/panel/lib/__tests__/` continue to pass; messaging is verified by smoke test
+as per repo convention).
 
-**Companion spec:** `docs/superpowers/specs/2026-05-26-permissions-minimization-design.md`
+**Companion spec:**
+`docs/superpowers/specs/2026-05-26-permissions-minimization-design.md`
 
 ---
 
 ## Commit 1 — Port-broker refactor
 
-Goal: replace all `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage` usage with a single port to a SW broker. No manifest or EULA changes in this commit — those land in Commits 2 and 3.
+Goal: replace all `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage` usage
+with a single port to a SW broker. No manifest or EULA changes in this commit —
+those land in Commits 2 and 3.
 
 ### Task 1: Add wire envelope types to `types.ts`
 
 **Files:**
+
 - Modify: `src/types.ts:54-74`
 
-- [ ] **Step 1: Replace the `ContentToPanel` and `PanelToContent` unions and append the wire envelope types**
+- [ ] **Step 1: Replace the `ContentToPanel` and `PanelToContent` unions and
+      append the wire envelope types**
 
-Open `src/types.ts`. Replace the block from line 53 through line 74 (the `ContentToPanel` and `PanelToContent` exports) with:
+Open `src/types.ts`. Replace the block from line 53 through line 74 (the
+`ContentToPanel` and `PanelToContent` exports) with:
 
 ```ts
 // Messages from content scripts → side panel (semantic payloads, wrapped in
@@ -68,14 +86,20 @@ export type PanelDown =
   | { type: "msg"; tabId: number; payload: ContentToPanel };
 ```
 
-- [ ] **Step 2: Run the type-checked test suite to confirm nothing references the removed types yet**
+- [ ] **Step 2: Run the type-checked test suite to confirm nothing references
+      the removed types yet**
 
-Run: `deno test -A src/`
-Expected: all 39 tests PASS. (The removed types — `tab_loaded` from `ContentToPanel`, `panel_ready`/`reset_session`/`tabId` on `clear_zone` from `PanelToContent` — aren't referenced from pure lib code; the references in `sw.ts`, `relay.ts`, and `App.tsx` will be replaced in the following tasks. The build will be temporarily broken until those tasks land, but tests don't depend on those files.)
+Run: `deno test -A src/` Expected: all 39 tests PASS. (The removed types —
+`tab_loaded` from `ContentToPanel`, `panel_ready`/`reset_session`/`tabId` on
+`clear_zone` from `PanelToContent` — aren't referenced from pure lib code; the
+references in `sw.ts`, `relay.ts`, and `App.tsx` will be replaced in the
+following tasks. The build will be temporarily broken until those tasks land,
+but tests don't depend on those files.)
 
 ### Task 2: Rewrite `sw.ts` as the port broker
 
 **Files:**
+
 - Modify: `src/background/sw.ts` (full rewrite)
 
 - [ ] **Step 1: Replace `sw.ts` with the broker implementation**
@@ -171,18 +195,22 @@ chrome.action.onClicked.addListener((tab) => {
 
 - [ ] **Step 2: Verify the file parses**
 
-Run: `deno check src/background/sw.ts 2>&1 | tail -5`
-Expected: no errors. (Type-check of just this file; the broader build is still broken because `relay.ts` and `App.tsx` still reference the old API — those land next.)
+Run: `deno check src/background/sw.ts 2>&1 | tail -5` Expected: no errors.
+(Type-check of just this file; the broader build is still broken because
+`relay.ts` and `App.tsx` still reference the old API — those land next.)
 
 ### Task 3: Expose `clearZone` from `geofence-overlay.ts` and drop its private port
 
 **Files:**
+
 - Modify: `src/content/geofence-overlay.ts:76` (export clearZone)
-- Modify: `src/content/geofence-overlay.ts:344-348` (drop the geofence-specific port)
+- Modify: `src/content/geofence-overlay.ts:344-348` (drop the geofence-specific
+  port)
 
 - [ ] **Step 1: Export `clearZone`**
 
-In `src/content/geofence-overlay.ts`, find line 76 (`function clearZone(): void {`). Change it to:
+In `src/content/geofence-overlay.ts`, find line 76
+(`function clearZone(): void {`). Change it to:
 
 ```ts
 export function clearZone(): void {
@@ -190,7 +218,8 @@ export function clearZone(): void {
 
 - [ ] **Step 2: Remove the geofence-specific port**
 
-In `src/content/geofence-overlay.ts`, find lines 344-348 inside `initLeafletOverlay`:
+In `src/content/geofence-overlay.ts`, find lines 344-348 inside
+`initLeafletOverlay`:
 
 ```ts
 function initLeafletOverlay(mapContainer: HTMLElement): void {
@@ -210,12 +239,13 @@ function initLeafletOverlay(mapContainer: HTMLElement): void {
 
 - [ ] **Step 3: Verify the file parses**
 
-Run: `deno check src/content/geofence-overlay.ts 2>&1 | tail -5`
-Expected: no errors.
+Run: `deno check src/content/geofence-overlay.ts 2>&1 | tail -5` Expected: no
+errors.
 
 ### Task 4: Rewrite `relay.ts` to use the port
 
 **Files:**
+
 - Modify: `src/content/relay.ts` (full rewrite)
 
 - [ ] **Step 1: Replace `relay.ts` with the port-based implementation**
@@ -410,7 +440,10 @@ document.addEventListener("click", (e) => {
 
 document.addEventListener("submit", (e) => {
   const t = e.target as Element | null;
-  if (t && typeof t.closest === "function" && t.closest("form.property-search-form")) {
+  if (
+    t && typeof t.closest === "function" &&
+    t.closest("form.property-search-form")
+  ) {
     clearSession();
   }
 }, true);
@@ -447,12 +480,12 @@ initGeofenceOverlay();
 
 - [ ] **Step 2: Verify the file parses**
 
-Run: `deno check src/content/relay.ts 2>&1 | tail -5`
-Expected: no errors.
+Run: `deno check src/content/relay.ts 2>&1 | tail -5` Expected: no errors.
 
 ### Task 5: Rewrite the panel's messaging in `App.tsx`
 
 **Files:**
+
 - Modify: `src/panel/App.tsx:37-152` (panel-port + handler block)
 - Modify: `src/panel/App.tsx:196-200` (zone_prompt sender)
 - Modify: `src/panel/App.tsx:292-300` (clear_zone sender)
@@ -485,7 +518,8 @@ function App() {
   const activeTabIdRef = useRef<number | null>(null);
 ```
 
-- [ ] **Step 2: Update the import statement to bring in `PanelDown` and `PanelUp`**
+- [ ] **Step 2: Update the import statement to bring in `PanelDown` and
+      `PanelUp`**
 
 In `src/panel/App.tsx`, find line 4:
 
@@ -505,111 +539,116 @@ import type {
 } from "../types.ts";
 ```
 
-(`ContentToPanel` no longer needs to be a direct import since the handler narrows via the envelope; keep it implicit via `PanelDown`.)
+(`ContentToPanel` no longer needs to be a direct import since the handler
+narrows via the envelope; keep it implicit via `PanelDown`.)
 
-- [ ] **Step 3: Replace the activeTabId-sync effect and the chrome.runtime.onMessage effect with a single port effect**
+- [ ] **Step 3: Replace the activeTabId-sync effect and the
+      chrome.runtime.onMessage effect with a single port effect**
 
-In `src/panel/App.tsx`, find the block at lines 62-152 — from the `// Tabs whose relay buffer...` comment through the end of the chrome.runtime.onMessage effect.
+In `src/panel/App.tsx`, find the block at lines 62-152 — from the
+`// Tabs whose relay buffer...` comment through the end of the
+chrome.runtime.onMessage effect.
 
 Replace the entire block with:
 
 ```tsx
-  // Mirror activeTabId into a ref for use inside the stable port handler.
-  useEffect(() => {
-    activeTabIdRef.current = activeTabId;
-  }, [activeTabId]);
+// Mirror activeTabId into a ref for use inside the stable port handler.
+useEffect(() => {
+  activeTabIdRef.current = activeTabId;
+}, [activeTabId]);
 
-  // Sync store when active tab changes. The relay's session is wiped by the
-  // SW broadcasting panel_opened on panel mount (NOT here) - tab switch is
-  // pure UI: just show that tab's stored data.
-  useEffect(() => {
-    if (activeTabId === null) return;
-    if (!tabStores.current.has(activeTabId)) {
-      tabStores.current.set(activeTabId, defaultTabStore(activeTabId));
+// Sync store when active tab changes. The relay's session is wiped by the
+// SW broadcasting panel_opened on panel mount (NOT here) - tab switch is
+// pure UI: just show that tab's stored data.
+useEffect(() => {
+  if (activeTabId === null) return;
+  if (!tabStores.current.has(activeTabId)) {
+    tabStores.current.set(activeTabId, defaultTabStore(activeTabId));
+  }
+  setStore({ ...tabStores.current.get(activeTabId)! });
+}, [activeTabId]);
+
+// Single port to the SW broker. Opened once on panel mount; SW broadcasts
+// panel_opened to every relay on this connection. Disconnects when the
+// panel closes - relays then drop messages silently.
+useEffect(() => {
+  const port = chrome.runtime.connect({ name: "panel" });
+  portRef.current = port;
+
+  function onMessage(msg: PanelDown) {
+    if (msg.type === "tab_loaded") {
+      // SW saw a relay port (re)connect - reset our view of that tab.
+      tabStores.current.set(msg.tabId, defaultTabStore(msg.tabId));
+      if (msg.tabId === activeTabIdRef.current) {
+        setStore({ ...tabStores.current.get(msg.tabId)! });
+      }
+      return;
     }
-    setStore({ ...tabStores.current.get(activeTabId)! });
-  }, [activeTabId]);
+    if (msg.type !== "msg") return;
+    const { tabId, payload } = msg;
+    if (!tabStores.current.has(tabId)) {
+      tabStores.current.set(tabId, defaultTabStore(tabId));
+    }
+    const s = tabStores.current.get(tabId)!;
 
-  // Single port to the SW broker. Opened once on panel mount; SW broadcasts
-  // panel_opened to every relay on this connection. Disconnects when the
-  // panel closes - relays then drop messages silently.
-  useEffect(() => {
-    const port = chrome.runtime.connect({ name: "panel" });
-    portRef.current = port;
-
-    function onMessage(msg: PanelDown) {
-      if (msg.type === "tab_loaded") {
-        // SW saw a relay port (re)connect - reset our view of that tab.
-        tabStores.current.set(msg.tabId, defaultTabStore(msg.tabId));
-        if (msg.tabId === activeTabIdRef.current) {
-          setStore({ ...tabStores.current.get(msg.tabId)! });
-        }
-        return;
-      }
-      if (msg.type !== "msg") return;
-      const { tabId, payload } = msg;
-      if (!tabStores.current.has(tabId)) {
-        tabStores.current.set(tabId, defaultTabStore(tabId));
-      }
-      const s = tabStores.current.get(tabId)!;
-
-      if (payload.type === "clear_session") {
-        // ViewPoint mode switch - drop accumulated listings. The drawn zone
-        // and map bounds persist; the views just empty.
-        s.session = [];
-        s.viewportListings = null;
-        s.fetchedBboxes = [];
-        s.searchStatus = "any";
-      }
-
-      if (payload.type === "listings") {
-        const resolved = resolveCoordinates(payload.listings, payload.properties);
-        s.session = mergeListings(s.session, resolved);
-        s.viewportListings = payload.kind === "search" ? resolved : null;
-        if (payload.kind === "search") s.searchStatus = payload.status;
-        if (payload.bbox) s.fetchedBboxes = [...s.fetchedBboxes, payload.bbox];
-      }
-
-      if (payload.type === "viewport_bbox") {
-        s.viewportBbox = payload.bbox;
-      }
-
-      if (payload.type === "zone") {
-        // Switch to zone scope only when a zone first appears - not on every
-        // re-send (the relay re-sends the polygon on each listings update,
-        // which would otherwise yank the user back to "zone" while panning).
-        const isNewZone = !!payload.polygon && !s.polygon;
-        s.polygon = payload.polygon;
-        if (isNewZone) s.scope = "zone";
-        else if (!payload.polygon && s.scope === "zone") s.scope = "session";
-      }
-
-      if (tabId === activeTabIdRef.current) {
-        setStore({ ...s });
-      }
+    if (payload.type === "clear_session") {
+      // ViewPoint mode switch - drop accumulated listings. The drawn zone
+      // and map bounds persist; the views just empty.
+      s.session = [];
+      s.viewportListings = null;
+      s.fetchedBboxes = [];
+      s.searchStatus = "any";
     }
 
-    port.onMessage.addListener(onMessage);
-    return () => {
-      port.disconnect();
-      portRef.current = null;
-    };
-  }, []);
+    if (payload.type === "listings") {
+      const resolved = resolveCoordinates(payload.listings, payload.properties);
+      s.session = mergeListings(s.session, resolved);
+      s.viewportListings = payload.kind === "search" ? resolved : null;
+      if (payload.kind === "search") s.searchStatus = payload.status;
+      if (payload.bbox) s.fetchedBboxes = [...s.fetchedBboxes, payload.bbox];
+    }
+
+    if (payload.type === "viewport_bbox") {
+      s.viewportBbox = payload.bbox;
+    }
+
+    if (payload.type === "zone") {
+      // Switch to zone scope only when a zone first appears - not on every
+      // re-send (the relay re-sends the polygon on each listings update,
+      // which would otherwise yank the user back to "zone" while panning).
+      const isNewZone = !!payload.polygon && !s.polygon;
+      s.polygon = payload.polygon;
+      if (isNewZone) s.scope = "zone";
+      else if (!payload.polygon && s.scope === "zone") s.scope = "session";
+    }
+
+    if (tabId === activeTabIdRef.current) {
+      setStore({ ...s });
+    }
+  }
+
+  port.onMessage.addListener(onMessage);
+  return () => {
+    port.disconnect();
+    portRef.current = null;
+  };
+}, []);
 ```
 
 - [ ] **Step 4: Add a small helper to post to a tab's relay via the port**
 
-In `src/panel/App.tsx`, immediately after the port effect (the one ending in `}, []);`), add:
+In `src/panel/App.tsx`, immediately after the port effect (the one ending in
+`}, []);`), add:
 
 ```tsx
-  // Send a panel→content payload through the SW broker to a specific tab.
-  const postToRelay = useCallback((tabId: number, payload: PanelToContent) => {
-    const port = portRef.current;
-    if (!port) return;
-    try {
-      port.postMessage({ type: "msg", tabId, payload } satisfies PanelUp);
-    } catch { /* port disconnected */ }
-  }, []);
+// Send a panel→content payload through the SW broker to a specific tab.
+const postToRelay = useCallback((tabId: number, payload: PanelToContent) => {
+  const port = portRef.current;
+  if (!port) return;
+  try {
+    port.postMessage({ type: "msg", tabId, payload } satisfies PanelUp);
+  } catch { /* port disconnected */ }
+}, []);
 ```
 
 - [ ] **Step 5: Replace the zone_prompt sender**
@@ -617,111 +656,128 @@ In `src/panel/App.tsx`, immediately after the port effect (the one ending in `},
 In `src/panel/App.tsx`, find the block around line 196-200:
 
 ```tsx
-  // Pulse the map's draw-zone button while the Zone tab is open with no zone.
-  useEffect(() => {
-    if (activeTabId === null || !store) return;
-    const active = store.scope === "zone" && !store.polygon;
-    chrome.tabs.sendMessage(activeTabId, { type: "zone_prompt", active }).catch(() => {});
-  }, [activeTabId, store?.scope, store?.polygon]);
+// Pulse the map's draw-zone button while the Zone tab is open with no zone.
+useEffect(() => {
+  if (activeTabId === null || !store) return;
+  const active = store.scope === "zone" && !store.polygon;
+  chrome.tabs.sendMessage(activeTabId, { type: "zone_prompt", active }).catch(
+    () => {},
+  );
+}, [activeTabId, store?.scope, store?.polygon]);
 ```
 
 Replace with:
 
 ```tsx
-  // Pulse the map's draw-zone button while the Zone tab is open with no zone.
-  useEffect(() => {
-    if (activeTabId === null || !store) return;
-    const active = store.scope === "zone" && !store.polygon;
-    postToRelay(activeTabId, { type: "zone_prompt", active });
-  }, [activeTabId, store?.scope, store?.polygon, postToRelay]);
+// Pulse the map's draw-zone button while the Zone tab is open with no zone.
+useEffect(() => {
+  if (activeTabId === null || !store) return;
+  const active = store.scope === "zone" && !store.polygon;
+  postToRelay(activeTabId, { type: "zone_prompt", active });
+}, [activeTabId, store?.scope, store?.polygon, postToRelay]);
 ```
 
 - [ ] **Step 6: Replace the clear_zone sender in the footer button**
 
-In `src/panel/App.tsx`, find the block around line 292-300 (the Clear button's onClick):
+In `src/panel/App.tsx`, find the block around line 292-300 (the Clear button's
+onClick):
 
 ```tsx
-            <button class="vpa-btn vpa-btn--ghost" onClick={() => {
-              updateStore({ session: [], viewportListings: null, fetchedBboxes: [], viewportBbox: null, polygon: null, scope: "viewport" });
-              if (activeTabId !== null) {
-                chrome.runtime.sendMessage({ type: "clear_zone", tabId: activeTabId }).catch(() => {});
-              }
-            }}>
+<button class="vpa-btn vpa-btn--ghost" onClick={() => {
+  updateStore({ session: [], viewportListings: null, fetchedBboxes: [], viewportBbox: null, polygon: null, scope: "viewport" });
+  if (activeTabId !== null) {
+    chrome.runtime.sendMessage({ type: "clear_zone", tabId: activeTabId }).catch(() => {});
+  }
+}}>
 ```
 
 Replace with:
 
 ```tsx
-            <button class="vpa-btn vpa-btn--ghost" onClick={() => {
-              updateStore({ session: [], viewportListings: null, fetchedBboxes: [], viewportBbox: null, polygon: null, scope: "viewport" });
-              if (activeTabId !== null) {
-                postToRelay(activeTabId, { type: "clear_zone" });
-              }
-            }}>
+<button class="vpa-btn vpa-btn--ghost" onClick={() => {
+  updateStore({ session: [], viewportListings: null, fetchedBboxes: [], viewportBbox: null, polygon: null, scope: "viewport" });
+  if (activeTabId !== null) {
+    postToRelay(activeTabId, { type: "clear_zone" });
+  }
+}}>
 ```
 
 - [ ] **Step 7: Verify the panel parses**
 
-Run: `deno check src/panel/App.tsx 2>&1 | tail -5`
-Expected: no errors.
+Run: `deno check src/panel/App.tsx 2>&1 | tail -5` Expected: no errors.
 
 ### Task 6: Build and run the unit test suite
 
 - [ ] **Step 1: Production build**
 
-Run: `deno run -A build.ts 2>&1 | tail -3`
-Expected: `Build complete.` (no errors).
+Run: `deno run -A build.ts 2>&1 | tail -3` Expected: `Build complete.` (no
+errors).
 
 - [ ] **Step 2: Run all tests**
 
-Run: `deno test -A src/ 2>&1 | tail -3`
-Expected: `ok | 39 passed | 0 failed`.
+Run: `deno test -A src/ 2>&1 | tail -3` Expected: `ok | 39 passed | 0 failed`.
 
 - [ ] **Step 3: Confirm no stale message types referenced**
 
-Run: `grep -rn "panel_ready\|reset_session\|\"tab_loaded\"" src/ --include="*.ts" --include="*.tsx"`
-Expected: no matches. (`tab_loaded` *as a string literal* only exists in the SW now wrapped in `PanelDown`; the grep above explicitly looks for the bare quoted string in source.)
+Run:
+`grep -rn "panel_ready\|reset_session\|\"tab_loaded\"" src/ --include="*.ts" --include="*.tsx"`
+Expected: no matches. (`tab_loaded` _as a string literal_ only exists in the SW
+now wrapped in `PanelDown`; the grep above explicitly looks for the bare quoted
+string in source.)
 
-Run: `grep -rn "chrome\.tabs\.sendMessage\|chrome\.runtime\.sendMessage\|chrome\.runtime\.onMessage" src/`
+Run:
+`grep -rn "chrome\.tabs\.sendMessage\|chrome\.runtime\.sendMessage\|chrome\.runtime\.onMessage" src/`
 Expected: no matches.
 
 ### Task 7: Smoke test the port refactor
 
 - [ ] **Step 1: Load the unpacked extension and reload**
 
-Manual: in `chrome://extensions`, locate SeeLevel, click reload. Reload any open viewpoint.ca tab so new content scripts inject.
+Manual: in `chrome://extensions`, locate SeeLevel, click reload. Reload any open
+viewpoint.ca tab so new content scripts inject.
 
 - [ ] **Step 2: Confirm the panel populates on open**
 
-Manual: open the side panel via the action button on a viewpoint.ca/map page. Confirm:
+Manual: open the side panel via the action button on a viewpoint.ca/map page.
+Confirm:
+
 - EULA gate still appears (this commit doesn't change it yet).
-- After acknowledging, the panel populates with listings within ~1.5s of opening (the new_today cache poll tick).
+- After acknowledging, the panel populates with listings within ~1.5s of opening
+  (the new_today cache poll tick).
 - Listing count in the header matches the visible bbox area.
 
 - [ ] **Step 3: Close and re-open the panel — state resets**
 
 Manual: close the side panel, reopen. Confirm:
-- Panel re-shows the EULA gate (no `storage` change yet, so this is the same as before).
-- After acknowledging, panel populates with fresh data again, with the listing count matching the visible bbox (not accumulating stale).
+
+- Panel re-shows the EULA gate (no `storage` change yet, so this is the same as
+  before).
+- After acknowledging, panel populates with fresh data again, with the listing
+  count matching the visible bbox (not accumulating stale).
 
 - [ ] **Step 4: Test zone draw + clear**
 
 Manual:
+
 - Open the panel, switch to the Zone tab → the draw button pulses on the map.
 - Draw a polygon → panel switches to Zone scope, listings filter to the polygon.
-- Click "Clear data" in the panel footer → polygon disappears from the map, panel resets.
+- Click "Clear data" in the panel footer → polygon disappears from the map,
+  panel resets.
 
 - [ ] **Step 5: Test multi-tab independence**
 
 Manual:
-- Open viewpoint.ca/map in two tabs (A and B). Each shows different map positions.
+
+- Open viewpoint.ca/map in two tabs (A and B). Each shows different map
+  positions.
 - With panel open, switch between tabs A and B. Confirm:
   - The panel re-renders with each tab's own listings/bbox.
   - Switching tabs doesn't wipe either tab's data.
 
 - [ ] **Step 6: Test page reload while panel is open**
 
-Manual: with panel open on tab A, refresh tab A (Cmd/Ctrl+R). Confirm the panel resets that tab's view to empty, then repopulates within ~1.5s.
+Manual: with panel open on tab A, refresh tab A (Cmd/Ctrl+R). Confirm the panel
+resets that tab's view to empty, then repopulates within ~1.5s.
 
 ### Task 8: Commit the port-broker refactor
 
@@ -747,18 +803,19 @@ EOF
 
 - [ ] **Step 2: Confirm the working tree is clean**
 
-Run: `git status`
-Expected: `nothing to commit, working tree clean`.
+Run: `git status` Expected: `nothing to commit, working tree clean`.
 
 ---
 
 ## Commit 2 — EULA acknowledge-each-open
 
-Goal: remove the `chrome.storage.local` dependency for EULA persistence so the `storage` permission can be dropped in Commit 3.
+Goal: remove the `chrome.storage.local` dependency for EULA persistence so the
+`storage` permission can be dropped in Commit 3.
 
 ### Task 9: Slim `EulaGate.tsx`
 
 **Files:**
+
 - Modify: `src/panel/components/EulaGate.tsx` (full rewrite)
 
 - [ ] **Step 1: Replace `EulaGate.tsx`**
@@ -788,8 +845,8 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
           lineHeight: 1.6,
         }}
       >
-        Personal, non-commercial use only. Commercial or professional users
-        must contact ViewPoint.ca directly before use.
+        Personal, non-commercial use only. Commercial or professional users must
+        contact ViewPoint.ca directly before use.
       </p>
       <p
         style={{
@@ -818,16 +875,18 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
 }
 ```
 
-Note: the prop renames from `onAccept` to `onAcknowledge` to reflect per-session semantics; the GitHub URL is removed (already present in `Disclaimer.tsx`).
+Note: the prop renames from `onAccept` to `onAcknowledge` to reflect per-session
+semantics; the GitHub URL is removed (already present in `Disclaimer.tsx`).
 
 - [ ] **Step 2: Verify the file parses**
 
-Run: `deno check src/panel/components/EulaGate.tsx 2>&1 | tail -5`
-Expected: no errors. (Will report unused prop name in App.tsx until the next task lands.)
+Run: `deno check src/panel/components/EulaGate.tsx 2>&1 | tail -5` Expected: no
+errors. (Will report unused prop name in App.tsx until the next task lands.)
 
 ### Task 10: Replace `chrome.storage.local` with per-session state in `App.tsx`
 
 **Files:**
+
 - Modify: `src/panel/App.tsx:36` (state declaration)
 - Modify: `src/panel/App.tsx:42-47` (remove storage-load effect)
 - Modify: `src/panel/App.tsx:197-200` (Eula gate render)
@@ -837,16 +896,16 @@ Expected: no errors. (Will report unused prop name in App.tsx until the next tas
 In `src/panel/App.tsx`, find line 36:
 
 ```tsx
-  const [eulaAccepted, setEulaAccepted] = useState<boolean | null>(null);
+const [eulaAccepted, setEulaAccepted] = useState<boolean | null>(null);
 ```
 
 Replace with:
 
 ```tsx
-  // Per-session acknowledgement only - reset on every panel mount (no
-  // chrome.storage so no `storage` permission). Default false; the gate's
-  // button flips it to true.
-  const [eulaAcknowledged, setEulaAcknowledged] = useState(false);
+// Per-session acknowledgement only - reset on every panel mount (no
+// chrome.storage so no `storage` permission). Default false; the gate's
+// button flips it to true.
+const [eulaAcknowledged, setEulaAcknowledged] = useState(false);
 ```
 
 - [ ] **Step 2: Remove the storage-load effect**
@@ -854,59 +913,66 @@ Replace with:
 In `src/panel/App.tsx`, find lines 42-47:
 
 ```tsx
-  // Check EULA on mount
-  useEffect(() => {
-    chrome.storage.local.get("eulaAccepted", (r) => {
-      setEulaAccepted(!!r.eulaAccepted);
-    });
-  }, []);
+// Check EULA on mount
+useEffect(() => {
+  chrome.storage.local.get("eulaAccepted", (r) => {
+    setEulaAccepted(!!r.eulaAccepted);
+  });
+}, []);
 ```
 
 Delete the entire block (including the blank line after it).
 
 - [ ] **Step 3: Update the render branch that gates on EULA**
 
-In `src/panel/App.tsx`, find the block (was around line 197-200 before deletions):
+In `src/panel/App.tsx`, find the block (was around line 197-200 before
+deletions):
 
 ```tsx
-  if (eulaAccepted === null) return null; // loading
-  if (!eulaAccepted) {
-    return <EulaGate onAccept={() => { chrome.storage.local.set({ eulaAccepted: true }); setEulaAccepted(true); }} />;
-  }
+if (eulaAccepted === null) return null; // loading
+if (!eulaAccepted) {
+  return (
+    <EulaGate
+      onAccept={() => {
+        chrome.storage.local.set({ eulaAccepted: true });
+        setEulaAccepted(true);
+      }}
+    />
+  );
+}
 ```
 
 Replace with:
 
 ```tsx
-  if (!eulaAcknowledged) {
-    return <EulaGate onAcknowledge={() => setEulaAcknowledged(true)} />;
-  }
+if (!eulaAcknowledged) {
+  return <EulaGate onAcknowledge={() => setEulaAcknowledged(true)} />;
+}
 ```
 
 (The "loading" branch goes away — there's no async load.)
 
 - [ ] **Step 4: Verify nothing references `chrome.storage` anymore**
 
-Run: `grep -n "chrome\.storage" src/`
-Expected: no matches.
+Run: `grep -n "chrome\.storage" src/` Expected: no matches.
 
 - [ ] **Step 5: Build and test**
 
-Run: `deno run -A build.ts 2>&1 | tail -3`
-Expected: `Build complete.`
+Run: `deno run -A build.ts 2>&1 | tail -3` Expected: `Build complete.`
 
-Run: `deno test -A src/ 2>&1 | tail -3`
-Expected: `ok | 39 passed | 0 failed`.
+Run: `deno test -A src/ 2>&1 | tail -3` Expected: `ok | 39 passed | 0 failed`.
 
 ### Task 11: Smoke test the EULA change
 
 - [ ] **Step 1: Reload extension and viewpoint tab**
 
-Manual: reload SeeLevel from `chrome://extensions`, refresh the viewpoint.ca tab.
+Manual: reload SeeLevel from `chrome://extensions`, refresh the viewpoint.ca
+tab.
 
 - [ ] **Step 2: Confirm gate shows on first open**
 
 Manual: open the side panel. Confirm:
+
 - The slim two-paragraph gate appears (not the previous longer version).
 - The button reads "I understand — continue".
 
@@ -916,11 +982,13 @@ Manual: click the button. Confirm the main panel renders.
 
 - [ ] **Step 4: Confirm gate shows again on next open**
 
-Manual: close the side panel, reopen it. Confirm the gate appears again (per-session acknowledgement is working — no persistence).
+Manual: close the side panel, reopen it. Confirm the gate appears again
+(per-session acknowledgement is working — no persistence).
 
 - [ ] **Step 5: Confirm Disclaimer footer still shows the GitHub link**
 
-Manual: in the main panel (post-acknowledge), scroll to the footer. Confirm the GitHub repo URL and "Report an issue" link still appear in `Disclaimer.tsx`.
+Manual: in the main panel (post-acknowledge), scroll to the footer. Confirm the
+GitHub repo URL and "Report an issue" link still appear in `Disclaimer.tsx`.
 
 ### Task 12: Commit the EULA change
 
@@ -943,18 +1011,20 @@ EOF
 
 - [ ] **Step 2: Confirm clean tree**
 
-Run: `git status`
-Expected: `nothing to commit, working tree clean`.
+Run: `git status` Expected: `nothing to commit, working tree clean`.
 
 ---
 
 ## Commit 3 — Manifest cleanup
 
-Goal: drop `activeTab`, `storage`, and the entire `host_permissions` key from the manifest. Verifies that Commits 1 and 2 fully removed dependencies on those permissions.
+Goal: drop `activeTab`, `storage`, and the entire `host_permissions` key from
+the manifest. Verifies that Commits 1 and 2 fully removed dependencies on those
+permissions.
 
 ### Task 13: Strip permissions from `manifest.json`
 
 **Files:**
+
 - Modify: `manifest.json:6-7`
 
 - [ ] **Step 1: Edit the permissions block**
@@ -962,58 +1032,70 @@ Goal: drop `activeTab`, `storage`, and the entire `host_permissions` key from th
 In `manifest.json`, find lines 6-7:
 
 ```json
-  "permissions": ["sidePanel", "activeTab", "storage"],
-  "host_permissions": ["*://*.viewpoint.ca/*"],
+"permissions": ["sidePanel", "activeTab", "storage"],
+"host_permissions": ["*://*.viewpoint.ca/*"],
 ```
 
 Replace with:
 
 ```json
-  "permissions": ["sidePanel"],
+"permissions": ["sidePanel"],
 ```
 
-(Both `host_permissions` and the extra entries in `permissions` are gone in one edit.)
+(Both `host_permissions` and the extra entries in `permissions` are gone in one
+edit.)
 
 - [ ] **Step 2: Verify the final manifest**
 
-Run: `cat manifest.json`
-Expected: `permissions` has exactly one entry (`sidePanel`); no `host_permissions` key anywhere in the file; `content_scripts` block is unchanged.
+Run: `cat manifest.json` Expected: `permissions` has exactly one entry
+(`sidePanel`); no `host_permissions` key anywhere in the file; `content_scripts`
+block is unchanged.
 
 - [ ] **Step 3: Production build**
 
-Run: `deno run -A build.ts 2>&1 | tail -3`
-Expected: `Build complete.`
+Run: `deno run -A build.ts 2>&1 | tail -3` Expected: `Build complete.`
 
 ### Task 14: Full smoke test on a fresh load
 
 - [ ] **Step 1: Hard-reload the extension**
 
-Manual: in `chrome://extensions`, remove SeeLevel entirely (don't just reload — remove). Then "Load unpacked" from `build/` to install fresh. This is important because Chrome caches the previous permission grants.
+Manual: in `chrome://extensions`, remove SeeLevel entirely (don't just reload —
+remove). Then "Load unpacked" from `build/` to install fresh. This is important
+because Chrome caches the previous permission grants.
 
 - [ ] **Step 2: Confirm install-time permission prompt is unchanged**
 
-Manual: on the load-unpacked dialog, observe the prompt. Expected: still "Read and modify data on viewpoint.ca" (from `content_scripts.matches`). The user-facing prompt is the same; what changed is the *manifest* declares less.
+Manual: on the load-unpacked dialog, observe the prompt. Expected: still "Read
+and modify data on viewpoint.ca" (from `content_scripts.matches`). The
+user-facing prompt is the same; what changed is the _manifest_ declares less.
 
 - [ ] **Step 3: Run all the smoke flows from Tasks 7 and 11**
 
 Manual, on a fresh viewpoint.ca tab:
+
 - EULA gate appears on first panel open.
 - Acknowledging shows the main panel.
 - Listings populate within ~1.5s.
 - Close + reopen panel → EULA again, then fresh data.
-- Multi-tab independence: open two viewpoint tabs, switch between them in the panel.
+- Multi-tab independence: open two viewpoint tabs, switch between them in the
+  panel.
 - Zone draw + clear works.
 - Page reload while panel is open resets that tab's view.
 
 - [ ] **Step 4: Confirm no console errors**
 
-Manual: open DevTools on the viewpoint.ca page → Console. Expected: no errors from `relay.js`, `fetch-interceptor.js`, or `sw.js`. (ViewPoint's own page errors are out of scope.)
+Manual: open DevTools on the viewpoint.ca page → Console. Expected: no errors
+from `relay.js`, `fetch-interceptor.js`, or `sw.js`. (ViewPoint's own page
+errors are out of scope.)
 
-Open DevTools on the side panel (right-click panel → Inspect) → Console. Expected: no errors from `panel.js`.
+Open DevTools on the side panel (right-click panel → Inspect) → Console.
+Expected: no errors from `panel.js`.
 
 - [ ] **Step 5: Confirm permission revocation doesn't fire**
 
-Manual: visit `chrome://extensions/?id=<seelevel-id>` → Details → Permissions. Expected: only "Read and modify your data on www.viewpoint.ca" listed; nothing about active tab, storage, or "Read your browsing history".
+Manual: visit `chrome://extensions/?id=<seelevel-id>` → Details → Permissions.
+Expected: only "Read and modify your data on www.viewpoint.ca" listed; nothing
+about active tab, storage, or "Read your browsing history".
 
 ### Task 15: Commit the manifest cleanup
 
@@ -1041,23 +1123,33 @@ EOF
 
 - [ ] **Step 2: Confirm history**
 
-Run: `git log --oneline -5`
-Expected: three new commits on top of the previous initial commit — port-broker refactor, EULA per session, manifest drop.
+Run: `git log --oneline -5` Expected: three new commits on top of the previous
+initial commit — port-broker refactor, EULA per session, manifest drop.
 
 ---
 
 ## Self-Review Notes
 
 **Spec coverage:**
+
 - §3 (port topology) → Tasks 2, 3, 4, 5
-- §4 (message flow & lifecycle) → Tasks 2 (SW broadcast on relay-connect + panel-connect), 4 (relay `panel_opened` handler, `emit()` gate on `panelOpen`)
+- §4 (message flow & lifecycle) → Tasks 2 (SW broadcast on relay-connect +
+  panel-connect), 4 (relay `panel_opened` handler, `emit()` gate on `panelOpen`)
 - §5 (EULA without storage) → Tasks 9, 10
 - §6 (manifest changes) → Task 13
 - §7 (sequence) → Three-commit structure preserved (Tasks 1-8, 9-12, 13-15)
-- §8 risks → Task 7 (port-refactor smoke), Task 11 (EULA smoke), Task 14 (full post-manifest smoke) cover the regression-prone areas; SW suspension risk is structural (active ports prevent suspension) and not actionable in a task.
+- §8 risks → Task 7 (port-refactor smoke), Task 11 (EULA smoke), Task 14 (full
+  post-manifest smoke) cover the regression-prone areas; SW suspension risk is
+  structural (active ports prevent suspension) and not actionable in a task.
 
-**Placeholder scan:** no TBDs; every edit has the full code shown; every command has expected output.
+**Placeholder scan:** no TBDs; every edit has the full code shown; every command
+has expected output.
 
-**Type consistency:** `RelayUp`/`RelayDown`/`PanelUp`/`PanelDown` defined in Task 1 are used identically in Tasks 2 (sw.ts), 4 (relay.ts), 5 (App.tsx). `clearZone` exported in Task 3 is imported in Task 4. `onAcknowledge` prop introduced in Task 9 is wired in Task 10.
+**Type consistency:** `RelayUp`/`RelayDown`/`PanelUp`/`PanelDown` defined in
+Task 1 are used identically in Tasks 2 (sw.ts), 4 (relay.ts), 5 (App.tsx).
+`clearZone` exported in Task 3 is imported in Task 4. `onAcknowledge` prop
+introduced in Task 9 is wired in Task 10.
 
-**Ambiguities resolved:** `tab_loaded` synthesis happens only when a new relay port connects (Task 2 step 1, lines around the `if (panelPort)` block), not on panel-open broadcast — this matches the spec §4 note about asymmetric handling.
+**Ambiguities resolved:** `tab_loaded` synthesis happens only when a new relay
+port connects (Task 2 step 1, lines around the `if (panelPort)` block), not on
+panel-open broadcast — this matches the spec §4 note about asymmetric handling.

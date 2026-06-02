@@ -52,7 +52,9 @@ interface SeriesDef {
 function parseDate(s: string | null | undefined): Date | null {
   if (!s) return null;
   const t = s.trim();
-  const d = /^\d{4}-\d{2}-\d{2}$/.test(t) ? new Date(t + "T00:00:00") : new Date(t);
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(t)
+    ? new Date(t + "T00:00:00")
+    : new Date(t);
   return isNaN(d.getTime()) ? null : d;
 }
 
@@ -80,27 +82,73 @@ function metricSeries(metric: MetricKey): SeriesDef[] {
   switch (metric) {
     case "price":
       return [
-        { label: "List", side: "list", value: (l) => l.list_price, date: listDate, isCount: false },
-        { label: "Sold", side: "sold", value: (l) => l.sold_price, date: soldDate, isCount: false },
+        {
+          label: "List",
+          side: "list",
+          value: (l) => l.list_price,
+          date: listDate,
+          isCount: false,
+        },
+        {
+          label: "Sold",
+          side: "sold",
+          value: (l) => l.sold_price,
+          date: soldDate,
+          isCount: false,
+        },
       ];
     case "volume":
       return [
-        { label: "Listed", side: "list", value: () => 1, date: listDate, isCount: true },
-        { label: "Sold", side: "sold", value: () => 1, date: soldDate, isCount: true },
+        {
+          label: "Listed",
+          side: "list",
+          value: () => 1,
+          date: listDate,
+          isCount: true,
+        },
+        {
+          label: "Sold",
+          side: "sold",
+          value: () => 1,
+          date: soldDate,
+          isCount: true,
+        },
       ];
     case "dom":
       // Days on market is intrinsically a completed-sale figure - single series.
-      return [{ label: "DOM", side: "sold", value: soldDom, date: soldDate, isCount: false }];
+      return [{
+        label: "DOM",
+        side: "sold",
+        value: soldDom,
+        date: soldDate,
+        isCount: false,
+      }];
     case "ppsf":
       return [
-        { label: "List", side: "list", value: (l) => ppsf(l.list_price, l.tla), date: listDate, isCount: false },
-        { label: "Sold", side: "sold", value: (l) => ppsf(l.sold_price, l.tla), date: soldDate, isCount: false },
+        {
+          label: "List",
+          side: "list",
+          value: (l) => ppsf(l.list_price, l.tla),
+          date: listDate,
+          isCount: false,
+        },
+        {
+          label: "Sold",
+          side: "sold",
+          value: (l) => ppsf(l.sold_price, l.tla),
+          date: soldDate,
+          isCount: false,
+        },
       ];
     case "listToSold":
       return [{
         label: "L→S",
         side: "sold",
-        value: (l) => (l.list_price && l.sold_price && l.list_price > 0 ? l.sold_price / l.list_price : null),
+        value: (
+          l,
+        ) => (l.list_price && l.sold_price && l.list_price > 0
+          ? l.sold_price / l.list_price
+          : null),
         date: soldDate,
         isCount: false,
       }];
@@ -112,16 +160,26 @@ export function aggregate(
   metric: MetricKey,
   buckets: Bucket[],
 ): AggregateSummary {
-  return { series: metricSeries(metric).map((def) => computeSeries(listings, def, buckets)) };
+  return {
+    series: metricSeries(metric).map((def) =>
+      computeSeries(listings, def, buckets)
+    ),
+  };
 }
 
-function computeSeries(listings: ListingRow[], def: SeriesDef, buckets: Bucket[]): SeriesSummary {
+function computeSeries(
+  listings: ListingRow[],
+  def: SeriesDef,
+  buckets: Bucket[],
+): SeriesSummary {
   const bucketStats: BucketStat[] = buckets.map((bucket) => {
     const inBucket = listings.filter((l) => {
       const d = def.date(l);
       return d !== null && d >= bucket.start && d < bucket.end;
     });
-    const values = inBucket.map(def.value).filter((v): v is number => v !== null);
+    const values = inBucket.map(def.value).filter((v): v is number =>
+      v !== null
+    );
     return {
       bucket,
       count: def.isCount ? inBucket.length : values.length,
@@ -147,7 +205,9 @@ function computeSeries(listings: ListingRow[], def: SeriesDef, buckets: Bucket[]
 
   // Delta: most recent complete bucket vs the one before it (count for Volume,
   // average otherwise).
-  const deltaVal = (b: BucketStat): number | null => (def.isCount ? b.count : b.avg);
+  const deltaVal = (
+    b: BucketStat,
+  ): number | null => (def.isCount ? b.count : b.avg);
   const withValue = complete.filter((b) => deltaVal(b) !== null);
   let delta: number | null = null;
   if (withValue.length >= 2) {
@@ -156,7 +216,14 @@ function computeSeries(listings: ListingRow[], def: SeriesDef, buckets: Bucket[]
     if (prev !== 0) delta = (curr - prev) / prev;
   }
 
-  return { label: def.label, side: def.side, buckets: bucketStats, latest, overall, delta };
+  return {
+    label: def.label,
+    side: def.side,
+    buckets: bucketStats,
+    latest,
+    overall,
+    delta,
+  };
 }
 
 function computeStats(values: number[] | null) {

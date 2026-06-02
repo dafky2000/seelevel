@@ -1,5 +1,5 @@
-import { assertEquals, assert } from "jsr:@std/assert@1";
-import { buildBuckets, availableWindowSizes } from "../bucket.ts";
+import { assert, assertEquals } from "jsr:@std/assert@1";
+import { availableWindowSizes, buildBuckets } from "../bucket.ts";
 
 // Fixed reference: Wednesday May 14 2025 12:00:00 UTC
 const NOW = new Date("2025-05-14T12:00:00Z");
@@ -13,7 +13,11 @@ Deno.test("buildBuckets today-weekly - no partial buckets", () => {
   // Each bucket is exactly 7 days
   for (const b of buckets) {
     const ms = b.end.getTime() - b.start.getTime();
-    assertEquals(ms, 7 * 24 * 60 * 60 * 1000, `Bucket ${b.label} should be 7 days`);
+    assertEquals(
+      ms,
+      7 * 24 * 60 * 60 * 1000,
+      `Bucket ${b.label} should be 7 days`,
+    );
   }
 });
 
@@ -44,7 +48,10 @@ Deno.test("buildBuckets - buckets are contiguous and ascending", () => {
     assertEquals(buckets[i].start.getTime(), buckets[i - 1].end.getTime());
   }
   assert(buckets[0].start >= ONE_YEAR_AGO);
-  assert(buckets[buckets.length - 1].end <= NOW || buckets[buckets.length - 1].end.getTime() - NOW.getTime() < 86400000);
+  assert(
+    buckets[buckets.length - 1].end <= NOW ||
+      buckets[buckets.length - 1].end.getTime() - NOW.getTime() < 86400000,
+  );
 });
 
 Deno.test("buildBuckets today-yearly - single bucket, not partial", () => {

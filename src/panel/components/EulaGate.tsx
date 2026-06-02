@@ -30,8 +30,11 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
           lineHeight: 1.6,
         }}
       >
-        Data: NSAR MLS® via ViewPoint.ca. This extension does not store,
-        transmit, or redistribute listing data.
+        Data: NSAR MLS® via ViewPoint.ca and engelvoelkersnovascotia.com. On
+        ViewPoint, SeeLevel observes data your browser already receives. On
+        Engel & Völkers, SeeLevel issues one small filtered request per map move
+        to provide complete viewport coverage, using your existing session.
+        Nothing is stored, transmitted off-device, or redistributed.
       </p>
       <button
         class="seelevel-btn seelevel-btn--primary"

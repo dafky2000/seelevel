@@ -96,8 +96,19 @@ Deno.test("aggregate dom - single series measuring list-to-sale duration", () =>
 
 Deno.test("aggregate volume - Listed and Sold series count by date", () => {
   const listings = [
-    makeListing({ id: "1", list_dt: "2025-05-03", sold_dt: null, sold_price: null }),
-    makeListing({ id: "2", status_id: 2, list_dt: "2025-04-15", sold_dt: "2025-05-09", sold_price: 280000 }),
+    makeListing({
+      id: "1",
+      list_dt: "2025-05-03",
+      sold_dt: null,
+      sold_price: null,
+    }),
+    makeListing({
+      id: "2",
+      status_id: 2,
+      list_dt: "2025-04-15",
+      sold_dt: "2025-05-09",
+      sold_price: 280000,
+    }),
   ];
   const result = aggregate(listings, "volume", [MAY_BUCKET]);
   assertEquals(result.series[0].label, "Listed");
@@ -119,7 +130,10 @@ Deno.test("aggregate - a non-sold status with a sold_dt is not counted as sold",
   assertEquals(vol.series[1].buckets[0].count, 0); // Sold volume excludes it
   assertEquals(vol.series[0].buckets[0].count, 1); // Listed volume still counts it
   // DOM is sold-only - the pending listing must not produce a value.
-  assertEquals(aggregate([pending], "dom", [MAY_BUCKET]).series[0].buckets[0].count, 0);
+  assertEquals(
+    aggregate([pending], "dom", [MAY_BUCKET]).series[0].buckets[0].count,
+    0,
+  );
 });
 
 Deno.test("aggregate ppsf - List and Sold series divide by tla", () => {
@@ -137,18 +151,28 @@ Deno.test("aggregate ppsf - List and Sold series divide by tla", () => {
 });
 
 Deno.test("aggregate latest - headline is the most recent complete bucket", () => {
-  const apr = [makeListing({ id: "1", list_price: 200000, list_dt: "2025-04-10" })];
-  const may = [makeListing({ id: "2", list_price: 400000, list_dt: "2025-05-10" })];
-  const list = aggregate([...apr, ...may], "price", [APR_BUCKET, MAY_BUCKET]).series[0];
+  const apr = [
+    makeListing({ id: "1", list_price: 200000, list_dt: "2025-04-10" }),
+  ];
+  const may = [
+    makeListing({ id: "2", list_price: 400000, list_dt: "2025-05-10" }),
+  ];
+  const list =
+    aggregate([...apr, ...may], "price", [APR_BUCKET, MAY_BUCKET]).series[0];
   assertAlmostEquals(list.latest!.avg!, 400000, 1); // May - not the 300k year average
   assertAlmostEquals(list.overall.avg!, 300000, 1);
 });
 
 Deno.test("aggregate latest - skips a partial trailing bucket", () => {
   const partialMay: Bucket = { ...MAY_BUCKET, isPartial: true };
-  const apr = [makeListing({ id: "1", list_price: 200000, list_dt: "2025-04-10" })];
-  const may = [makeListing({ id: "2", list_price: 400000, list_dt: "2025-05-10" })];
-  const list = aggregate([...apr, ...may], "price", [APR_BUCKET, partialMay]).series[0];
+  const apr = [
+    makeListing({ id: "1", list_price: 200000, list_dt: "2025-04-10" }),
+  ];
+  const may = [
+    makeListing({ id: "2", list_price: 400000, list_dt: "2025-05-10" }),
+  ];
+  const list =
+    aggregate([...apr, ...may], "price", [APR_BUCKET, partialMay]).series[0];
   assertAlmostEquals(list.latest!.avg!, 200000, 1); // April - May is still partial
 });
 
@@ -190,9 +214,21 @@ Deno.test("aggregate bucket floor - buckets with <5 listings flagged", () => {
 
 Deno.test("aggregate - series carry list/sold side tags", () => {
   // Side drives the for-sale / sold search filter in the panel.
-  assertEquals(aggregate([], "price", [MAY_BUCKET]).series.map((s) => s.side), ["list", "sold"]);
-  assertEquals(aggregate([], "volume", [MAY_BUCKET]).series.map((s) => s.side), ["list", "sold"]);
-  assertEquals(aggregate([], "ppsf", [MAY_BUCKET]).series.map((s) => s.side), ["list", "sold"]);
+  assertEquals(aggregate([], "price", [MAY_BUCKET]).series.map((s) => s.side), [
+    "list",
+    "sold",
+  ]);
+  assertEquals(
+    aggregate([], "volume", [MAY_BUCKET]).series.map((s) => s.side),
+    ["list", "sold"],
+  );
+  assertEquals(aggregate([], "ppsf", [MAY_BUCKET]).series.map((s) => s.side), [
+    "list",
+    "sold",
+  ]);
   assertEquals(aggregate([], "dom", [MAY_BUCKET]).series[0].side, "sold");
-  assertEquals(aggregate([], "listToSold", [MAY_BUCKET]).series[0].side, "sold");
+  assertEquals(
+    aggregate([], "listToSold", [MAY_BUCKET]).series[0].side,
+    "sold",
+  );
 });
