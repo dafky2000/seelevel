@@ -57,6 +57,18 @@ All notable changes to SeeLevel are documented here.
   wiped when a listing has no `pid` → property join to resolve against; listings
   that already carry their own latitude/longitude are preserved for the
   point-in-polygon zone filter.
+- **Zone coverage no longer reads 0% on a zone full of listings.** Coverage
+  tracks the map bounds of fetched batches, which never reset between zones and
+  never recorded bounds for listings hydrated from the NEW TODAY cache or
+  discarded by an oversize error — so a freshly selected region, or one switched
+  to after an error, could show 0% while clearly populated. Switching zones now
+  reseeds coverage from data already held: the current map view plus a
+  neighbourhood-sized cell around every session listing inside the zone
+  (including off-screen ones), with fresh fetches accumulating on top as you
+  pan.
+- **Reset zone stays on the Zone tab.** Clearing the drawn zone dropped the
+  panel back to the Viewport scope; it now stays on the Zone tab and returns to
+  the region picker / draw prompt.
 
 ### Internal
 

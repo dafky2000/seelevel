@@ -68,3 +68,84 @@ Deno.test("computeZoneCoverage - hole is excluded from total area", () => {
 Deno.test("computeZoneCoverage - empty shape → 0", () => {
   assertEquals(computeZoneCoverage([], []), 0);
 });
+
+import { reseedCoverage, zoneSignature } from "../coverage.ts";
+
+// A ~0.1° square zone near a grid line, big enough to hold several 0.02° cells.
+const RESEED_ZONE: ZoneShape = [
+  {
+    outer: [[44.0, -63.0], [44.0, -62.9], [44.1, -62.9], [44.1, -63.0]],
+    holes: [],
+  },
+];
+
+Deno.test("reseedCoverage - no view, no in-zone listings → empty", () => {
+  const outside = [{ lat: 40, lng: -70 }];
+  assertEquals(reseedCoverage(outside, RESEED_ZONE, null), []);
+});
+
+Deno.test("reseedCoverage - current view bbox is seeded first", () => {
+  const view: BBox = {
+    sw_lat: 44.0,
+    sw_lng: -63.0,
+    ne_lat: 44.1,
+    ne_lng: -62.9,
+  };
+  const seeded = reseedCoverage([], RESEED_ZONE, view);
+  assertEquals(seeded[0], view);
+});
+
+Deno.test("reseedCoverage - in-zone listings each yield a covering cell", () => {
+  // Three listings in three distinct 0.02° cells inside the zone.
+  const listings = [
+    { lat: 44.01, lng: -62.99 },
+    { lat: 44.05, lng: -62.95 },
+    { lat: 44.08, lng: -62.92 },
+  ];
+  const seeded = reseedCoverage(listings, RESEED_ZONE, null);
+  assertEquals(seeded.length, 3);
+  // Each cell, intersected with the zone, contributes positive coverage.
+  assertEquals(computeZoneCoverage(seeded, RESEED_ZONE) > 0, true);
+});
+
+Deno.test("reseedCoverage - listings in the same cell collapse to one bbox", () => {
+  const listings = [
+    { lat: 44.011, lng: -62.991 },
+    { lat: 44.012, lng: -62.992 }, // same 0.02° cell as above
+  ];
+  assertEquals(reseedCoverage(listings, RESEED_ZONE, null).length, 1);
+});
+
+Deno.test("reseedCoverage - null coordinates are skipped", () => {
+  const listings = [{ lat: null, lng: null }, { lat: 44.05, lng: -62.95 }];
+  assertEquals(reseedCoverage(listings, RESEED_ZONE, null).length, 1);
+});
+
+Deno.test("zoneSignature - null/empty → empty string", () => {
+  assertEquals(zoneSignature(null), "");
+  assertEquals(zoneSignature([]), "");
+});
+
+Deno.test("zoneSignature - stable across ~1km coordinate rounding", () => {
+  const a: ZoneShape = [{
+    outer: [[44.001, -63.001], [44.0, -62.9], [44.1, -62.9]],
+    holes: [],
+  }];
+  const b: ZoneShape = [{
+    outer: [[44.004, -63.004], [44.0, -62.9], [44.1, -62.9]],
+    holes: [],
+  }];
+  assertEquals(zoneSignature(a), zoneSignature(b));
+});
+
+Deno.test("zoneSignature - differs for distinct zones", () => {
+  const halifax: ZoneShape = [{
+    outer: [[44.6, -63.6], [44.6, -63.5], [44.7, -63.5]],
+    holes: [],
+  }];
+  const sydney: ZoneShape = [{
+    outer: [[46.1, -60.2], [46.1, -60.1], [46.2, -60.1]],
+    holes: [],
+  }];
+  assertEquals(zoneSignature(halifax) !== zoneSignature(sydney), true);
+});

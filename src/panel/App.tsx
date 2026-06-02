@@ -16,7 +16,11 @@ import {
 } from "./store.ts";
 import { availableWindowSizes, buildBuckets } from "./lib/bucket.ts";
 import { aggregate } from "./lib/aggregate.ts";
-import { computeZoneCoverage } from "./lib/coverage.ts";
+import {
+  computeZoneCoverage,
+  reseedCoverage,
+  zoneSignature,
+} from "./lib/coverage.ts";
 import { EulaGate } from "./components/EulaGate.tsx";
 import { ScopeSelector } from "./components/ScopeSelector.tsx";
 import { WindowPicker } from "./components/WindowPicker.tsx";
@@ -213,8 +217,18 @@ function App() {
         // appears; scope is otherwise driven explicitly by the ScopeSelector and
         // the ZonePanel reset/clear actions, so a null re-send never changes it.
         const isNewZone = !!payload.shape && !s.zone;
+        // The relay re-sends the same zone on every listings tick; only a
+        // genuine shape change reseeds coverage, so accumulated fetch bboxes
+        // survive re-sends. Region picks reseed at their call site below.
+        const shapeChanged =
+          zoneSignature(payload.shape) !== zoneSignature(s.zone);
         s.zone = payload.shape;
         if (isNewZone) s.scope = "zone";
+        if (shapeChanged) {
+          s.fetchedBboxes = payload.shape
+            ? reseedCoverage(s.session, payload.shape, s.viewportBbox)
+            : [];
+        }
       }
 
       if (payload.type === "draw_state") {
@@ -512,6 +526,14 @@ function App() {
                     zone: region.shape,
                     selectedRegionId: region.id,
                     scope: "zone",
+                    // Seed coverage from listings already in session that fall
+                    // inside the region (incl. off-screen) plus the current
+                    // view, so a freshly picked region isn't stuck at 0%.
+                    fetchedBboxes: reseedCoverage(
+                      store.session,
+                      region.shape,
+                      store.viewportBbox,
+                    ),
                   });
                   if (activeTabId !== null) {
                     postToRelay(activeTabId, {
@@ -534,11 +556,14 @@ function App() {
                   }
                 }}
                 onReset={() => {
+                  // Stay on the Zone tab after reset - clearing the polygon
+                  // drops back to the region picker / draw prompt, not Viewport.
                   updateStore({
                     zone: null,
                     selectedRegionId: null,
                     drawing: false,
-                    scope: "viewport",
+                    scope: "zone",
+                    fetchedBboxes: [],
                   });
                   if (activeTabId !== null) {
                     postToRelay(activeTabId, { type: "clear_zone" });
