@@ -61,20 +61,24 @@ jobs:
       - name: Extract release notes from CHANGELOG.md
         run: |
           set -e
+          # Write to RUNNER_TEMP, not the repo tree: this file is generated, and
+          # `deno fmt --check` below would otherwise flag it (trailing newline).
+          # CHANGELOG.md remains the single source of truth; this is just the
+          # extracted body for the GitHub Release.
           # Capture everything between this version's heading and the next
           # `## [` heading. Then strip leading blank lines.
           awk -v ver="$GITHUB_REF_NAME" '
             $0 ~ "^## \\[" ver "\\]" { capturing=1; next }
             capturing && /^## \[/      { exit }
             capturing                  { print }
-          ' CHANGELOG.md | sed '/./,$!d' > release-notes.md
-          if [ ! -s release-notes.md ]; then
+          ' CHANGELOG.md | sed '/./,$!d' > "$RUNNER_TEMP/release-notes.md"
+          if [ ! -s "$RUNNER_TEMP/release-notes.md" ]; then
             echo "::error::No '## [$GITHUB_REF_NAME]' section found in CHANGELOG.md."
             echo "::error::Add a '## [$GITHUB_REF_NAME] - $(date +%Y-%m-%d)' section and re-tag."
             exit 1
           fi
           echo "----- release notes preview -----"
-          cat release-notes.md
+          cat "$RUNNER_TEMP/release-notes.md"
           echo "---------------------------------"
 
       - name: Format check
@@ -109,5 +113,5 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           gh release create "$GITHUB_REF_NAME" \
             --title "SeeLevel $GITHUB_REF_NAME" \
-            --notes-file release-notes.md \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
             "seelevel-${VERSION}.zip"
