@@ -19,7 +19,7 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
         }}
       >
         Personal, non-commercial use only. Commercial or professional users must
-        contact ViewPoint.ca or Engel & Völkers directly before use.
+        contact ViewPoint.ca directly before use.
       </p>
       <p
         style={{
@@ -28,11 +28,9 @@ export function EulaGate({ onAcknowledge }: { onAcknowledge: () => void }) {
           lineHeight: 1.6,
         }}
       >
-        Data: NSAR MLS® via ViewPoint.ca and engelvoelkersnovascotia.com. On
-        ViewPoint, SeeLevel observes data your browser already receives. On
-        Engel & Völkers, SeeLevel issues one small filtered request per map move
-        to provide complete viewport coverage, using your existing session.
-        Nothing is stored, transmitted off-device, or redistributed.
+        Data: NSAR MLS® via ViewPoint.ca. SeeLevel observes data your browser
+        already receives. Nothing is stored, transmitted off-device, or
+        redistributed.
       </p>
       <button
         type="button"

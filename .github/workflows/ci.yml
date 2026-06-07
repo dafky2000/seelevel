@@ -53,8 +53,6 @@ jobs:
           test -f build/background/sw.js
           test -f build/content/fetch-interceptor.js
           test -f build/content/relay.js
-          test -f build/content/ev/main.js
-          test -f build/content/ev/relay.js
           for size in 16 48 128; do
             test -f "build/icons/icon${size}.png"
           done

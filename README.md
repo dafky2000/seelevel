@@ -6,15 +6,13 @@
 Perception meets a reference line.
 
 SeeLevel is a Chrome side-panel extension that turns the listings you browse on
-ViewPoint.ca and Engel & Völkers Nova Scotia into price, volume, days-on-market,
-list-to-sold and price-per-sqft trends - a clear, calm read on the Nova Scotia
-market. Personal, non-commercial use only.
+ViewPoint.ca into price, volume, days-on-market, list-to-sold and price-per-sqft
+trends - a clear, calm read on the Nova Scotia market. Personal, non-commercial
+use only.
 
 On ViewPoint.ca it is a pure passive observer: every byte it processes is one
-your browser was already going to fetch. On Engel & Völkers it adds one small
-filtered request per map resolve (pan/zoom), reusing your existing session, to
-get complete viewport coverage - and nothing more. No scraping, no telemetry;
-close the side panel and the data is gone.
+your browser was already going to fetch - and nothing more. No scraping, no
+telemetry; close the side panel and the data is gone.
 
 ---
 
@@ -30,7 +28,7 @@ many listings fall in each price band for the current window. Window picker at
 the top: Weekly, Monthly, Yearly. Scope tabs across the header: **Viewport**
 (what's on screen right now), **Session** (everything you've browsed this trip),
 **Zone** (only listings inside a polygon you drew on the map). Works on
-`viewpoint.ca/map` and `engelvoelkersnovascotia.com/map`.
+`viewpoint.ca/map`.
 
 ---
 
@@ -90,9 +88,6 @@ refresh arrow on the SeeLevel card in `chrome://extensions`.
 
 - **📈 Five metrics, one scroll.** Price, Volume, Days on Market, Price/sqft,
   List → Sold % - stacked, not tabbed.
-- **🌐 Two sites, one panel.** `viewpoint.ca/map` and
-  `engelvoelkersnovascotia.com/map` share the same panel, scopes, charts, and
-  zone tool.
 - **🗺️ Zone filtering.** The Zone tab lets you select any Nova Scotia town,
   district, county, or regional municipality from a grouped dropdown — SeeLevel
   pans the map there and applies the boundary as the active filter. Or draw a
@@ -230,10 +225,10 @@ The load-bearing implementation choices, lifted from the initial commit message:
 | `sidePanel` | The UI surface. |
 
 That's the entire `permissions` list. No `host_permissions` key either. Access
-to each site is granted by `content_scripts.matches` (`*://*.viewpoint.ca/map*`
-and `*://*.engelvoelkersnovascotia.com/map*`), which is the same install-time UX
-as `host_permissions` would be ("Read and modify data on this site") but doesn't
-trigger Chrome Web Store's "Limited Host Use" in-depth review path.
+to the site is granted by `content_scripts.matches` (`*://*.viewpoint.ca/map*`),
+which is the same install-time UX as `host_permissions` would be ("Read and
+modify data on this site") but doesn't trigger Chrome Web Store's "Limited Host
+Use" in-depth review path.
 
 Notably absent: `activeTab`, `storage`, `tabs`, `scripting`, `webRequest`,
 `cookies`, `<all_urls>`. The Chrome Web Store review surface is deliberately
@@ -278,8 +273,7 @@ For architectural detail beyond what's here, see [`CLAUDE.md`](CLAUDE.md)
 
 This extension is built as a passive observer of data the browser already
 received. It is not a scraper and not a crawler. On ViewPoint it makes no
-requests of its own; on Engel & Völkers it makes exactly one small filtered
-request per map resolve (see below). The specific cautions baked into the code:
+requests of its own. The specific cautions baked into the code:
 
 - **Read-only XHR observation.** `open` and `send` are wrapped, but arguments
   are forwarded verbatim. The patches are wrapped in try/catch so a bug here can
@@ -290,12 +284,6 @@ request per map resolve (see below). The specific cautions baked into the code:
 - **ViewPoint: no request generation.** On viewpoint.ca the extension never
   issues XHR or fetch to ViewPoint endpoints. Every byte it processes is one the
   user's browser was already going to fetch as part of normal browsing.
-- **Engel & Völkers: one extra request per map resolve.** EV's map XHR returns
-  only a page of results, so for complete viewport coverage the adapter fires a
-  single slim `get-listing` request each time the map settles (pan/zoom),
-  reusing the page's existing auth session and requesting a minimal field set.
-  It is deduped and at-most-one-in-flight, never retried on error, and issues no
-  request until the map has settled on a viewport. No other request paths exist.
 - **Non-2xx responses are dropped.** The HTTP 400 "Too many search results"
   error returned when the map is zoomed too far out is never treated as
   listings, so its bbox can't falsely count toward zone coverage.

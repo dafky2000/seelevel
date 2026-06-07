@@ -2,6 +2,18 @@
 
 All notable changes to SeeLevel are documented here.
 
+## [v0.2.1] - 2026-06-07
+
+### Removed
+
+- **Engel & Völkers Nova Scotia support.** SeeLevel now runs on viewpoint.ca
+  only. The EV adapter required an active per-map `get-listing` request for
+  complete viewport coverage, which conflicts with the EV site terms, so it is
+  not shipped pending written permission from the provider. ViewPoint remains a
+  pure passive observer. The adapter source and tests are retained in the repo
+  (disabled via the `EV_ENABLED` build flag) so EV can be re-enabled once
+  permitted.
+
 ## [v0.2.0] - 2026-06-02
 
 ### Added

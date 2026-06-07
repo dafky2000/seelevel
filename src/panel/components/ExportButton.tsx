@@ -14,11 +14,10 @@ function formatValue(v: number | null, metric: MetricKey): string {
   return v.toFixed(2);
 }
 
-// The export credits whichever site the data was observed on.
-function attributionLine(host: string | null): string {
-  if (host === "engelvoelkersnovascotia.com") {
-    return `# Source: Engel & Völkers Nova Scotia (NSAR MLS® System). For personal use only.`;
-  }
+// The export credits the site the data was observed on. ViewPoint is the only
+// supported site (EV support is disabled - see build.ts); host is retained for
+// when per-site attribution returns.
+function attributionLine(_host: string | null): string {
   return `# Source: ViewPoint.ca (NSAR MLS® System and Province of Nova Scotia). For personal use only.`;
 }
 

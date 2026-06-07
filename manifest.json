@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SeeLevel",
-  "version": "0.2.0",
-  "description": "Turns the ViewPoint.ca and Engel & Völkers Nova Scotia real estate into trends. For personal, non-professional use only.",
+  "version": "0.2.1",
+  "description": "Turns ViewPoint.ca Nova Scotia real estate listings into trends. For personal, non-professional use only.",
   "permissions": ["sidePanel"],
   "side_panel": {
     "default_path": "panel/index.html"
@@ -21,18 +21,6 @@
     {
       "matches": ["*://*.viewpoint.ca/map*"],
       "js": ["content/relay.js"],
-      "run_at": "document_start",
-      "world": "ISOLATED"
-    },
-    {
-      "matches": ["*://*.engelvoelkersnovascotia.com/map*"],
-      "js": ["content/ev/main.js"],
-      "run_at": "document_start",
-      "world": "MAIN"
-    },
-    {
-      "matches": ["*://*.engelvoelkersnovascotia.com/map*"],
-      "js": ["content/ev/relay.js"],
       "run_at": "document_start",
       "world": "ISOLATED"
     }

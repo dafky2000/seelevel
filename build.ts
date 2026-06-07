@@ -86,6 +86,17 @@ const npmCssPlugin: esbuild.Plugin = {
 const isPackage = Deno.args.includes("--package");
 const isProd = isPackage || Deno.args.includes("--prod");
 
+// Engel & Völkers support is DISABLED pending written permission from EV
+// (Engel & Völkers Americas, Inc., New York). EV's terms prohibit automated
+// access, and the EV adapter's sibling-fetch issues one request per map move -
+// so we do not ship it. The adapter source under src/content/ev/ is preserved
+// (and kept green by `deno check` / `deno test`) for re-enable. To re-enable:
+// flip this to true, restore the two engelvoelkersnovascotia.com content_scripts
+// entries + EV description in manifest.json, restore the EV panel copy
+// (EulaGate/Disclaimer/EmptyState/ExportButton), and delete the guard test
+// src/panel/__tests__/no-ev-in-public-surfaces.test.ts. See CLAUDE.md.
+const EV_ENABLED = false;
+
 const shared: esbuild.BuildOptions = {
   bundle: true,
   minify: isProd,
@@ -101,7 +112,7 @@ const shared: esbuild.BuildOptions = {
   define: { __DEV__: JSON.stringify(!isProd) },
 };
 
-await Promise.all([
+const builds: Promise<esbuild.BuildResult>[] = [
   esbuild.build({
     ...shared,
     entryPoints: [join(dir, "src/content/fetch-interceptor.ts")],
@@ -132,19 +143,27 @@ await Promise.all([
       __EXT_VERSION__: JSON.stringify(version),
     },
   }),
-  esbuild.build({
-    ...shared,
-    entryPoints: [join(dir, "src/content/ev/main.ts")],
-    outfile: join(dir, "build/content/ev/main.js"),
-    format: "iife",
-  }),
-  esbuild.build({
-    ...shared,
-    entryPoints: [join(dir, "src/content/ev/relay.ts")],
-    outfile: join(dir, "build/content/ev/relay.js"),
-    format: "iife",
-  }),
-]);
+];
+
+// EV content-script bundles - only built when EV support is enabled.
+if (EV_ENABLED) {
+  builds.push(
+    esbuild.build({
+      ...shared,
+      entryPoints: [join(dir, "src/content/ev/main.ts")],
+      outfile: join(dir, "build/content/ev/main.js"),
+      format: "iife",
+    }),
+    esbuild.build({
+      ...shared,
+      entryPoints: [join(dir, "src/content/ev/relay.ts")],
+      outfile: join(dir, "build/content/ev/relay.js"),
+      format: "iife",
+    }),
+  );
+}
+
+await Promise.all(builds);
 
 // Ensure output directories exist
 await Deno.mkdir(join(dir, "build/panel"), { recursive: true });
@@ -190,8 +209,9 @@ for (
     "build/content/relay.js",
     "build/background/sw.js",
     "build/panel/panel.js",
-    "build/content/ev/main.js",
-    "build/content/ev/relay.js",
+    ...(EV_ENABLED
+      ? ["build/content/ev/main.js", "build/content/ev/relay.js"]
+      : []),
   ]
 ) {
   const path = join(dir, rel);

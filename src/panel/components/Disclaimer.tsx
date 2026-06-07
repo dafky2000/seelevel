@@ -13,30 +13,18 @@ export function Disclaimer({ host }: { host: string | null }) {
 
   const isViewPoint = host !== null &&
     (host === "viewpoint.ca" || host.endsWith(".viewpoint.ca"));
-  const isEV = host === "engelvoelkersnovascotia.com";
 
   // Off a supported site there is nothing to credit or disclaim - hide it.
-  if (!isViewPoint && !isEV) return null;
+  if (!isViewPoint) return null;
 
-  const bodyText: h.JSX.Element = isViewPoint
-    ? (
-      <>
-        The SeeLevel extension is for personal use only. This extension
-        processes data your browser receives from ViewPoint.ca and does not
-        store, transmit, or redistribute listing or telemetry data. Data Source:
-        ViewPoint Realty, NSAR MLS® System and Province of Nova Scotia.
-      </>
-    )
-    : (
-      <>
-        The SeeLevel extension is for personal use only. This extension
-        processes data your browser receives from engelvoelkersnovascotia.com,
-        plus one small filtered request per map move (pan/zoom), using your
-        existing session. Nothing is stored, transmitted off-device, or
-        redistributed. Data Source: Engel &amp; Völkers Nova Scotia and NSAR
-        MLS® System.
-      </>
-    );
+  const bodyText: h.JSX.Element = (
+    <>
+      The SeeLevel extension is for personal use only. This extension processes
+      data your browser receives from ViewPoint.ca and does not store, transmit,
+      or redistribute listing or telemetry data. Data Source: ViewPoint Realty,
+      NSAR MLS® System and Province of Nova Scotia.
+    </>
+  );
 
   return (
     <div class="seelevel-disclaimer">

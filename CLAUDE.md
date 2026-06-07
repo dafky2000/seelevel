@@ -176,13 +176,24 @@ These constraints exist for legal/Web Store reasons. Don't relax them:
 
 - **No extra API requests on ViewPoint.** On viewpoint.ca the extension only
   observes XHRs the page already makes - never call `fetch()` to a viewpoint
-  endpoint from extension code. **The Engel & Völkers adapter is the one
-  documented exception:** EV's map XHR returns only a page of results, so
-  `src/content/ev/sibling-fetch.ts` fires exactly one slim, filtered
-  `get-listing` request per map resolve (pan/zoom), reusing the page's existing
-  auth session, to get complete viewport coverage. It is deduped,
-  at-most-one-in-flight, and never retried. Don't add any other request paths on
-  either site. (See the EV adapter spec and the per-adapter network table in
+  endpoint from extension code.
+- **Engel & Völkers (EV) support is DISABLED** pending written permission from
+  Engel & Völkers Americas, Inc. (New York). EV's terms prohibit automated
+  access and the EV adapter's `src/content/ev/sibling-fetch.ts` issues one
+  `get-listing` request per map resolve, so EV is not shipped: `EV_ENABLED` in
+  `build.ts` is `false`, the EV `content_scripts` entries are removed from
+  `manifest.json`, and all user-facing/public EV copy is scrubbed (guarded by
+  `src/panel/__tests__/no-ev-in-public-surfaces.test.ts`). The adapter source
+  under `src/content/ev/` and its tests are preserved (kept green by
+  `deno check` / `deno test`) so EV can be re-enabled once permitted - reverse
+  the steps in that order and delete the guard test. **When EV was enabled it
+  was the one documented exception** to the no-extra-requests rule: EV's map XHR
+  returns only a page of results, so the adapter fired exactly one slim,
+  filtered `get-listing` request per map resolve (pan/zoom), reusing the page's
+  existing auth session for complete viewport coverage - deduped,
+  at-most-one-in-flight, never retried. If you re-enable it, don't add any other
+  request paths on either site. (See the EV adapter spec and the per-adapter
+  network table in
   `docs/superpowers/specs/2026-05-26-permissions-minimization-design.md`.)
 - **Nothing is persisted, full stop.** Zero `chrome.storage` usage. The EULA is
   acknowledged per panel-mount via plain `useState`. Listing/analytical data
