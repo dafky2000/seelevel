@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SeeLevel",
   "version": "0.2.1",
-  "description": "Turns ViewPoint.ca Nova Scotia real estate listings into trends. For personal, non-professional use only.",
+  "description": "Turns the ViewPoint.ca listings you browse into actionable trends. For personal, non-professional, non-commerical use only.",
   "permissions": ["sidePanel"],
   "side_panel": {
     "default_path": "panel/index.html"
